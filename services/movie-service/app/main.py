@@ -1,10 +1,11 @@
 from fastapi import FastAPI, Depends, HTTPException
-from datetime import datetime, date
+from datetime import datetime, date, time
 from typing import Optional, List
+from decimal import Decimal
 import os
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from sqlalchemy import Column, String, Integer, Date, Boolean, DateTime, Text, DECIMAL, ForeignKey
+from sqlalchemy import Column, String, Integer, Date, Boolean, DateTime, Text, DECIMAL, ForeignKey, Time
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from pydantic import BaseModel
@@ -35,6 +36,32 @@ class Movie(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
 
+class Theater(Base):
+    __tablename__ = "theaters"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(255), nullable=False)
+    location = Column(String(500))
+    city = Column(String(100))
+    total_seats = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+class Showtime(Base):
+    __tablename__ = "showtimes"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    movie_id = Column(UUID(as_uuid=True), ForeignKey("movies.id"), nullable=False)
+    theater_id = Column(UUID(as_uuid=True), ForeignKey("theaters.id"), nullable=False)
+    show_date = Column(Date, nullable=False)
+    show_time = Column(Time, nullable=False)
+    price = Column(DECIMAL(10, 2), nullable=False)
+    available_seats = Column(Integer, nullable=False)
+    total_seats = Column(Integer, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
 # Schemas
 class MovieResponse(BaseModel):
     id: uuid.UUID
@@ -47,6 +74,19 @@ class MovieResponse(BaseModel):
     release_date: Optional[date]
     poster_url: Optional[str]
     director: Optional[str]
+    
+    class Config:
+        from_attributes = True
+
+class ShowtimeResponse(BaseModel):
+    id: uuid.UUID
+    movie_id: uuid.UUID
+    theater_id: uuid.UUID
+    show_date: date
+    show_time: time
+    price: Decimal
+    available_seats: int
+    total_seats: int
     
     class Config:
         from_attributes = True
@@ -91,7 +131,21 @@ async def get_movie(movie_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     
     return movie
 
-@app.get("/showtimes")
-async def get_showtimes():
-    """Get all showtimes - To be implemented"""
-    return {"message": "Showtimes endpoint - Coming soon"}
+@app.get("/showtimes", response_model=List[ShowtimeResponse])
+async def get_showtimes(
+    movie_id: Optional[uuid.UUID] = None,
+    show_date: Optional[date] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    from sqlalchemy import select, and_
+    
+    query = select(Showtime).filter(Showtime.is_active == True)
+    
+    if movie_id:
+        query = query.filter(Showtime.movie_id == movie_id)
+    if show_date:
+        query = query.filter(Showtime.show_date == show_date)
+    
+    result = await db.execute(query)
+    showtimes = result.scalars().all()
+    return showtimes
