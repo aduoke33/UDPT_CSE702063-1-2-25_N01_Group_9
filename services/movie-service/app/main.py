@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from datetime import datetime, date
 from typing import Optional, List
 import os
@@ -79,6 +79,17 @@ async def get_movies(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Movie).filter(Movie.is_active == True))
     movies = result.scalars().all()
     return movies
+
+@app.get("/movies/{movie_id}", response_model=MovieResponse)
+async def get_movie(movie_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import select
+    result = await db.execute(select(Movie).filter(Movie.id == movie_id))
+    movie = result.scalar_one_or_none()
+    
+    if not movie:
+        raise HTTPException(status_code=404, detail="Movie not found")
+    
+    return movie
 
 @app.get("/showtimes")
 async def get_showtimes():
