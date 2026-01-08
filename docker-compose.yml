@@ -234,6 +234,24 @@ services:
       - movie_booking_network
     restart: unless-stopped
 
+  # Grafana Dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - movie_booking_network
+    restart: unless-stopped
+
 networks:
   movie_booking_network:
     driver: bridge
@@ -243,3 +261,4 @@ volumes:
   redis_data:
   rabbitmq_data:
   prometheus_data:
+  grafana_data:
