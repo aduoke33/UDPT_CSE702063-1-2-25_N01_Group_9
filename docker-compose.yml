@@ -156,6 +156,7 @@ services:
       dockerfile: Dockerfile
     container_name: notification_service
     environment:
+      DATABASE_URL: postgresql://admin:admin123@postgres:5432/movie_booking
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/
       SMTP_HOST: smtp.gmail.com
       SMTP_PORT: 587
@@ -164,6 +165,8 @@ services:
     ports:
       - "8005:8000"
     depends_on:
+      postgres:
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     networks:
