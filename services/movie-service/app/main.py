@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, date, time
 from typing import Optional, List
@@ -6,6 +6,7 @@ from decimal import Decimal
 import os
 import logging
 import redis.asyncio as redis
+from contextvars import ContextVar
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, String, Integer, Date, Boolean, DateTime, Text, DECIMAL, ForeignKey, Time
@@ -15,10 +16,23 @@ from pydantic import BaseModel
 import httpx
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Counter, Histogram
+from starlette.middleware.base import BaseHTTPMiddleware
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Correlation ID context
+correlation_id_ctx: ContextVar[str] = ContextVar('correlation_id', default='')
+
+# Configure logging with correlation ID
+class CorrelationIdFilter(logging.Filter):
+    def filter(self, record):
+        record.correlation_id = correlation_id_ctx.get('')
+        return True
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(correlation_id)s] - %(message)s'
+)
 logger = logging.getLogger(__name__)
+logger.addFilter(CorrelationIdFilter())
 
 # Custom metrics
 movie_requests = Counter('movie_requests_total', 'Total movie requests', ['endpoint', 'status'])
@@ -184,9 +198,42 @@ class ShowtimeDetailResponse(BaseModel):
 
 app = FastAPI(
     title="Movie Service",
-    description="Movie Catalog & Showtimes Management",
-    version="1.0.0"
+    description="""
+## Movie Catalog & Showtimes Management Service
+
+This service manages movies, theaters, showtimes and seat availability.
+
+### Features:
+- 🎬 **Movies** - CRUD operations for movie catalog
+- 🏛️ **Theaters** - Manage theater information
+- 🕐 **Showtimes** - Schedule movie screenings
+- 💺 **Seats** - Check seat availability with Redis caching
+
+### Caching:
+Seat availability is cached in Redis for fast lookup during booking.
+    """,
+    version="1.0.0",
+    openapi_tags=[
+        {"name": "Movies", "description": "Movie catalog operations"},
+        {"name": "Theaters", "description": "Theater management"},
+        {"name": "Showtimes", "description": "Movie showtime scheduling"},
+        {"name": "Seats", "description": "Seat availability"},
+        {"name": "Health", "description": "Service health checks"}
+    ]
 )
+
+# Correlation ID Middleware
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        correlation_id = request.headers.get('X-Correlation-ID', str(uuid.uuid4()))
+        correlation_id_ctx.set(correlation_id)
+        logger.info(f"Request started: {request.method} {request.url.path}")
+        response = await call_next(request)
+        response.headers['X-Correlation-ID'] = correlation_id
+        logger.info(f"Request completed: {response.status_code}")
+        return response
+
+app.add_middleware(CorrelationIdMiddleware)
 
 # Prometheus instrumentation
 Instrumentator().instrument(app).expose(app)

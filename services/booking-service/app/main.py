@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta
@@ -12,6 +12,7 @@ import string
 import httpx
 import logging
 import time
+from contextvars import ContextVar
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, String, Integer, DateTime, DECIMAL, ForeignKey, Boolean
@@ -20,10 +21,23 @@ from pydantic import BaseModel
 import asyncio
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Counter, Histogram, Gauge
+from starlette.middleware.base import BaseHTTPMiddleware
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Correlation ID context
+correlation_id_ctx: ContextVar[str] = ContextVar('correlation_id', default='')
+
+# Configure logging with correlation ID
+class CorrelationIdFilter(logging.Filter):
+    def filter(self, record):
+        record.correlation_id = correlation_id_ctx.get('')
+        return True
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(correlation_id)s] - %(message)s'
+)
 logger = logging.getLogger(__name__)
+logger.addFilter(CorrelationIdFilter())
 
 # Custom metrics
 booking_counter = Counter('bookings_total', 'Total booking attempts', ['status'])
@@ -93,9 +107,47 @@ class BookingResponse(BaseModel):
 
 app = FastAPI(
     title="Booking Service",
-    description="Ticket Booking with Distributed Locking",
-    version="1.0.0"
+    description="""
+## Ticket Booking Service with Distributed Locking
+
+This service handles ticket booking operations with **Redis-based distributed locking** to prevent race conditions.
+
+### Features:
+- 🎫 **Book Tickets** - Reserve seats with distributed lock protection
+- 🔒 **Distributed Locking** - Redis SET NX EX pattern prevents double-booking
+- ❌ **Cancel Booking** - Release seats and refund
+- 📋 **View Bookings** - Get user's booking history
+
+### Distributed Locking Flow:
+1. Acquire lock on showtime: `SET lock:showtime:{id} locked NX EX 10`
+2. Check seat availability in Redis
+3. Reserve seats and create booking
+4. Release lock
+
+### Booking States:
+- `pending` - Awaiting payment (15 min expiry)
+- `confirmed` - Payment completed
+- `cancelled` - Booking cancelled
+    """,
+    version="1.0.0",
+    openapi_tags=[
+        {"name": "Booking", "description": "Ticket booking operations with distributed locking"},
+        {"name": "Health", "description": "Service health checks"}
+    ]
 )
+
+# Correlation ID Middleware
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        correlation_id = request.headers.get('X-Correlation-ID', str(uuid.uuid4()))
+        correlation_id_ctx.set(correlation_id)
+        logger.info(f"Request started: {request.method} {request.url.path}")
+        response = await call_next(request)
+        response.headers['X-Correlation-ID'] = correlation_id
+        logger.info(f"Request completed: {response.status_code}")
+        return response
+
+app.add_middleware(CorrelationIdMiddleware)
 
 # Prometheus instrumentation
 Instrumentator().instrument(app).expose(app)

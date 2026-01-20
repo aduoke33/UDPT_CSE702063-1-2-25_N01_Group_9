@@ -1,10 +1,12 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import datetime, timedelta
 from typing import Optional
 import os
 import logging
+import uuid as uuid_pkg
+from contextvars import ContextVar
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
@@ -16,10 +18,23 @@ from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Counter, Histogram
+from starlette.middleware.base import BaseHTTPMiddleware
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Correlation ID context
+correlation_id_ctx: ContextVar[str] = ContextVar('correlation_id', default='')
+
+# Configure logging with correlation ID
+class CorrelationIdFilter(logging.Filter):
+    def filter(self, record):
+        record.correlation_id = correlation_id_ctx.get('')
+        return True
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(correlation_id)s] - %(message)s'
+)
 logger = logging.getLogger(__name__)
+logger.addFilter(CorrelationIdFilter())
 
 # Custom metrics
 login_counter = Counter('auth_logins_total', 'Total login attempts', ['status'])
@@ -115,9 +130,50 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 # =====================================================
 app = FastAPI(
     title="Auth Service",
-    description="Authentication & User Management Service",
-    version="1.0.0"
+    description="""
+## Authentication & User Management Service
+
+This service handles all authentication and user management operations for the Movie Booking System.
+
+### Features:
+- 🔐 **User Registration** - Create new user accounts
+- 🔑 **User Login** - JWT-based authentication
+- ✅ **Token Verification** - Validate access tokens
+- 👤 **User Profile** - Get and update user information
+
+### Authentication:
+All protected endpoints require a valid JWT token in the Authorization header:
+```
+Authorization: Bearer <access_token>
+```
+    """,
+    version="1.0.0",
+    contact={
+        "name": "Movie Booking Team",
+        "email": "support@moviebooking.com"
+    },
+    license_info={
+        "name": "MIT License"
+    },
+    openapi_tags=[
+        {"name": "Authentication", "description": "Login, Register, Token operations"},
+        {"name": "Users", "description": "User profile management"},
+        {"name": "Health", "description": "Service health checks"}
+    ]
 )
+
+# Correlation ID Middleware
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        correlation_id = request.headers.get('X-Correlation-ID', str(uuid_pkg.uuid4()))
+        correlation_id_ctx.set(correlation_id)
+        logger.info(f"Request started: {request.method} {request.url.path}")
+        response = await call_next(request)
+        response.headers['X-Correlation-ID'] = correlation_id
+        logger.info(f"Request completed: {response.status_code}")
+        return response
+
+app.add_middleware(CorrelationIdMiddleware)
 
 # Prometheus instrumentation
 Instrumentator().instrument(app).expose(app)

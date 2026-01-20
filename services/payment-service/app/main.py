@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime
@@ -8,6 +8,7 @@ import os
 import uuid
 import logging
 import time
+from contextvars import ContextVar
 import httpx
 import aio_pika
 import json
@@ -18,10 +19,23 @@ from sqlalchemy.dialects.postgresql import UUID
 from pydantic import BaseModel
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Counter, Histogram
+from starlette.middleware.base import BaseHTTPMiddleware
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Correlation ID context
+correlation_id_ctx: ContextVar[str] = ContextVar('correlation_id', default='')
+
+# Configure logging with correlation ID
+class CorrelationIdFilter(logging.Filter):
+    def filter(self, record):
+        record.correlation_id = correlation_id_ctx.get('')
+        return True
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(correlation_id)s] - %(message)s'
+)
 logger = logging.getLogger(__name__)
+logger.addFilter(CorrelationIdFilter())
 
 # Custom metrics
 payment_counter = Counter('payments_total', 'Total payment attempts', ['status', 'method'])
@@ -74,9 +88,54 @@ class PaymentResponse(BaseModel):
 
 app = FastAPI(
     title="Payment Service",
-    description="Payment Processing & Transaction Management",
-    version="1.0.0"
+    description="""
+## Payment Processing & Transaction Management Service
+
+This service handles payment processing and sends notifications via **RabbitMQ**.
+
+### Features:
+- 💳 **Process Payment** - Handle payment for bookings
+- 💵 **Refund** - Process refunds for cancelled bookings
+- 📊 **Payment History** - View payment records
+
+### Message Queue Integration:
+After successful payment, a message is published to RabbitMQ:
+```json
+{
+  "type": "payment_confirmation",
+  "booking_id": "...",
+  "user_id": "...",
+  "amount": 150000,
+  "transaction_id": "TXN..."
+}
+```
+The Notification Service consumes these messages to send confirmations.
+
+### Payment Methods:
+- `credit_card` - Credit card payment
+- `debit_card` - Debit card payment  
+- `bank_transfer` - Bank transfer
+- `e_wallet` - E-wallet (MoMo, ZaloPay, etc.)
+    """,
+    version="1.0.0",
+    openapi_tags=[
+        {"name": "Payments", "description": "Payment processing operations"},
+        {"name": "Health", "description": "Service health checks"}
+    ]
 )
+
+# Correlation ID Middleware
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        correlation_id = request.headers.get('X-Correlation-ID', str(uuid.uuid4()))
+        correlation_id_ctx.set(correlation_id)
+        logger.info(f"Request started: {request.method} {request.url.path}")
+        response = await call_next(request)
+        response.headers['X-Correlation-ID'] = correlation_id
+        logger.info(f"Request completed: {response.status_code}")
+        return response
+
+app.add_middleware(CorrelationIdMiddleware)
 
 # Prometheus instrumentation
 Instrumentator().instrument(app).expose(app)

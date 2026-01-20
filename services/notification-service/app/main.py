@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from typing import Optional, List
@@ -6,6 +6,7 @@ import os
 import uuid
 import logging
 import time
+from contextvars import ContextVar
 import aio_pika
 import json
 import asyncio
@@ -16,10 +17,23 @@ from sqlalchemy.dialects.postgresql import UUID
 from pydantic import BaseModel
 from prometheus_fastapi_instrumentator import Instrumentator
 from prometheus_client import Counter, Histogram, Gauge
+from starlette.middleware.base import BaseHTTPMiddleware
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Correlation ID context
+correlation_id_ctx: ContextVar[str] = ContextVar('correlation_id', default='')
+
+# Configure logging with correlation ID
+class CorrelationIdFilter(logging.Filter):
+    def filter(self, record):
+        record.correlation_id = correlation_id_ctx.get('')
+        return True
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(correlation_id)s] - %(message)s'
+)
 logger = logging.getLogger(__name__)
+logger.addFilter(CorrelationIdFilter())
 
 # Custom metrics
 notification_counter = Counter('notifications_total', 'Total notifications', ['type', 'status'])
@@ -71,9 +85,55 @@ class NotificationResponse(BaseModel):
 
 app = FastAPI(
     title="Notification Service",
-    description="Email & SMS Notifications via RabbitMQ",
-    version="1.0.0"
+    description="""
+## Email & SMS Notifications Service via RabbitMQ
+
+This service consumes messages from **RabbitMQ** and sends notifications to users.
+
+### Features:
+- 📧 **Email Notifications** - Send booking confirmations via email
+- 📱 **SMS Notifications** - Send SMS alerts
+- 🔔 **Push Notifications** - In-app push notifications
+- 📋 **Notification History** - View sent notifications
+
+### Message Queue Consumer:
+This service listens to the `notifications` queue in RabbitMQ.
+
+Message format expected:
+```json
+{
+  "type": "payment_confirmation",
+  "user_id": "uuid",
+  "booking_id": "uuid",
+  "email": "user@example.com",
+  "message": "Your booking has been confirmed!"
+}
+```
+
+### Notification Types:
+- `email` - Email notifications
+- `sms` - SMS text messages
+- `push` - Push notifications
+    """,
+    version="1.0.0",
+    openapi_tags=[
+        {"name": "Notifications", "description": "Notification management"},
+        {"name": "Health", "description": "Service health checks"}
+    ]
 )
+
+# Correlation ID Middleware
+class CorrelationIdMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        correlation_id = request.headers.get('X-Correlation-ID', str(uuid.uuid4()))
+        correlation_id_ctx.set(correlation_id)
+        logger.info(f"Request started: {request.method} {request.url.path}")
+        response = await call_next(request)
+        response.headers['X-Correlation-ID'] = correlation_id
+        logger.info(f"Request completed: {response.status_code}")
+        return response
+
+app.add_middleware(CorrelationIdMiddleware)
 
 # Prometheus instrumentation
 Instrumentator().instrument(app).expose(app)
