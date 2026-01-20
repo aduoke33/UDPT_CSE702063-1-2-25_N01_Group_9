@@ -45,6 +45,60 @@ lock_acquisition_histogram = Histogram('lock_acquisition_seconds', 'Lock acquisi
 lock_wait_counter = Counter('lock_wait_total', 'Total lock wait/retry attempts')
 active_bookings_gauge = Gauge('active_bookings', 'Number of active pending bookings')
 seat_reservation_histogram = Histogram('seat_reservation_seconds', 'Seat reservation duration')
+circuit_breaker_state = Gauge('circuit_breaker_state', 'Circuit breaker state (0=closed, 1=open, 2=half-open)', ['service'])
+
+# =====================================================
+# CIRCUIT BREAKER PATTERN
+# =====================================================
+class CircuitBreaker:
+    """Circuit Breaker to prevent cascading failures"""
+    def __init__(self, failure_threshold: int = 5, recovery_timeout: int = 30):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.failures = 0
+        self.last_failure_time = None
+        self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
+    
+    def record_failure(self):
+        self.failures += 1
+        self.last_failure_time = time.time()
+        if self.failures >= self.failure_threshold:
+            self.state = "OPEN"
+            logger.warning(f"Circuit breaker OPENED after {self.failures} failures")
+    
+    def record_success(self):
+        self.failures = 0
+        self.state = "CLOSED"
+    
+    def can_execute(self) -> bool:
+        if self.state == "CLOSED":
+            return True
+        if self.state == "OPEN":
+            if time.time() - self.last_failure_time > self.recovery_timeout:
+                self.state = "HALF_OPEN"
+                logger.info("Circuit breaker moved to HALF_OPEN")
+                return True
+            return False
+        return True  # HALF_OPEN allows one request
+
+# Circuit breakers for external services
+auth_circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
+movie_circuit_breaker = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
+
+# =====================================================
+# RETRY WITH EXPONENTIAL BACKOFF
+# =====================================================
+async def retry_with_backoff(func, max_retries: int = 3, base_delay: float = 0.5):
+    """Retry a function with exponential backoff"""
+    for attempt in range(max_retries):
+        try:
+            return await func()
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise
+            delay = base_delay * (2 ** attempt)
+            logger.warning(f"Attempt {attempt + 1} failed, retrying in {delay}s: {str(e)}")
+            await asyncio.sleep(delay)
 
 # Configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://admin:admin123@postgres:5432/movie_booking")
@@ -52,9 +106,16 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://:redis123@redis:6379/2")
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://admin:admin123@rabbitmq:5672/")
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000")
 MOVIE_SERVICE_URL = os.getenv("MOVIE_SERVICE_URL", "http://movie-service:8000")
+REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "10.0"))
 
-# Database Setup
-engine = create_async_engine(DATABASE_URL, echo=True)
+# Database Setup with connection pooling
+engine = create_async_engine(
+    DATABASE_URL, 
+    echo=True,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True
+)
 async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
 
@@ -169,18 +230,36 @@ async def get_db():
         yield session
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
-    """Verify token with auth service"""
-    async with httpx.AsyncClient() as client:
-        try:
+    """Verify token with auth service using Circuit Breaker"""
+    if not auth_circuit_breaker.can_execute():
+        circuit_breaker_state.labels(service='auth').set(1)
+        raise HTTPException(status_code=503, detail="Auth service temporarily unavailable")
+    
+    async def call_auth_service():
+        async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
             response = await client.get(
                 f"{AUTH_SERVICE_URL}/verify",
-                headers={"Authorization": f"Bearer {token}"}
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "X-Correlation-ID": correlation_id_ctx.get('')
+                }
             )
             if response.status_code == 200:
                 return response.json()
             raise HTTPException(status_code=401, detail="Invalid authentication")
-        except Exception as e:
-            raise HTTPException(status_code=401, detail=f"Auth service error: {str(e)}")
+    
+    try:
+        result = await retry_with_backoff(call_auth_service, max_retries=3)
+        auth_circuit_breaker.record_success()
+        circuit_breaker_state.labels(service='auth').set(0)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        auth_circuit_breaker.record_failure()
+        circuit_breaker_state.labels(service='auth').set(1 if auth_circuit_breaker.state == "OPEN" else 2)
+        logger.error(f"Auth service call failed: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Auth service error: {str(e)}")
 
 def generate_booking_code() -> str:
     """Generate unique booking code"""
@@ -199,17 +278,79 @@ async def release_lock(lock_name: str):
     await redis_client.delete(f"lock:{lock_name}")
     logger.info(f"Released lock: {lock_name}")
 
+# =====================================================
+# BACKGROUND TASK: Expired Booking Cleanup
+# =====================================================
+async def cleanup_expired_bookings():
+    """Background task to clean up expired bookings and release seats"""
+    while True:
+        try:
+            await asyncio.sleep(60)  # Run every minute
+            async with async_session_maker() as db:
+                from sqlalchemy import select, update
+                
+                # Find expired pending bookings
+                result = await db.execute(
+                    select(Booking).filter(
+                        Booking.status == 'pending',
+                        Booking.expires_at < datetime.utcnow()
+                    )
+                )
+                expired_bookings = result.scalars().all()
+                
+                for booking in expired_bookings:
+                    logger.info(f"Cleaning up expired booking: {booking.booking_code}")
+                    
+                    # Release seats from Redis
+                    seat_result = await db.execute(
+                        select(BookingSeat).filter(BookingSeat.booking_id == booking.id)
+                    )
+                    booking_seats = seat_result.scalars().all()
+                    
+                    for bs in booking_seats:
+                        seat_key = f"seat:{bs.showtime_id}:{bs.seat_id}"
+                        await redis_client.delete(seat_key)
+                        await db.execute(
+                            update(BookingSeat)
+                            .where(BookingSeat.id == bs.id)
+                            .values(status='expired')
+                        )
+                    
+                    # Update booking status
+                    await db.execute(
+                        update(Booking)
+                        .where(Booking.id == booking.id)
+                        .values(status='expired')
+                    )
+                    active_bookings_gauge.dec()
+                    booking_counter.labels(status='expired').inc()
+                
+                await db.commit()
+                
+                if expired_bookings:
+                    logger.info(f"Cleaned up {len(expired_bookings)} expired bookings")
+        except Exception as e:
+            logger.error(f"Error in cleanup task: {str(e)}")
+
+cleanup_task: Optional[asyncio.Task] = None
+
 @app.on_event("startup")
 async def startup_event():
-    global redis_client
+    global redis_client, cleanup_task
     redis_client = await redis.from_url(REDIS_URL, decode_responses=True)
     
     # Create tables if not exist
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
+    # Start background cleanup task
+    cleanup_task = asyncio.create_task(cleanup_expired_bookings())
+    logger.info("Started expired booking cleanup task")
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    if cleanup_task:
+        cleanup_task.cancel()
     if redis_client:
         await redis_client.close()
 

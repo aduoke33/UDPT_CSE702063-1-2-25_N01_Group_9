@@ -8,6 +8,7 @@ import os
 import uuid
 import logging
 import time
+import asyncio
 from contextvars import ContextVar
 import httpx
 import aio_pika
@@ -48,11 +49,22 @@ message_queue_counter = Counter('mq_messages_total', 'Messages sent to queue', [
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://admin:admin123@postgres:5432/movie_booking")
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://admin:admin123@rabbitmq:5672/")
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000")
+REDIS_URL = os.getenv("REDIS_URL", "redis://:redis123@redis:6379/3")
+REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "10.0"))
 
-# Database Setup
-engine = create_async_engine(DATABASE_URL, echo=True)
+# Database Setup with connection pooling
+engine = create_async_engine(
+    DATABASE_URL, 
+    echo=True,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True
+)
 async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 Base = declarative_base()
+
+# Redis client for idempotency
+redis_client: Optional = None
 
 # Models
 class Payment(Base):
@@ -63,6 +75,7 @@ class Payment(Base):
     amount = Column(DECIMAL(10, 2), nullable=False)
     payment_method = Column(String(50))
     transaction_id = Column(String(255), unique=True)
+    idempotency_key = Column(String(255), unique=True, nullable=True)
     status = Column(String(20), default='pending')
     payment_date = Column(DateTime)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -73,6 +86,7 @@ class PaymentCreate(BaseModel):
     booking_id: uuid.UUID
     payment_method: str
     amount: Decimal
+    idempotency_key: Optional[str] = None  # Client-provided idempotency key
 
 class PaymentResponse(BaseModel):
     id: uuid.UUID
@@ -181,20 +195,61 @@ async def publish_notification(message: dict):
             ),
             routing_key="notifications"
         )
+        message_queue_counter.labels(queue='notifications').inc()
+        logger.info(f"Published notification message: {message.get('type')}")
+
+# =====================================================
+# IDEMPOTENCY CHECK
+# =====================================================
+async def check_idempotency(idempotency_key: str, db: AsyncSession) -> Optional[Payment]:
+    """Check if a payment with this idempotency key already exists"""
+    if not idempotency_key:
+        return None
+    
+    # Check Redis cache first
+    cached = await redis_client.get(f"idempotency:{idempotency_key}")
+    if cached:
+        logger.info(f"Idempotency hit from cache: {idempotency_key}")
+        return None  # Will be handled by returning cached payment
+    
+    # Check database
+    from sqlalchemy import select
+    result = await db.execute(
+        select(Payment).filter(Payment.idempotency_key == idempotency_key)
+    )
+    existing = result.scalar_one_or_none()
+    if existing:
+        logger.info(f"Idempotency hit from DB: {idempotency_key}")
+        return existing
+    return None
+
+async def store_idempotency(idempotency_key: str, payment_id: str):
+    """Store idempotency key in Redis with 24h TTL"""
+    if idempotency_key:
+        await redis_client.setex(f"idempotency:{idempotency_key}", 86400, payment_id)
 
 @app.on_event("startup")
 async def startup_event():
-    global rabbitmq_connection, rabbitmq_channel
+    global rabbitmq_connection, rabbitmq_channel, redis_client
     
-    # Connect to RabbitMQ
-    try:
-        rabbitmq_connection = await aio_pika.connect_robust(RABBITMQ_URL)
-        rabbitmq_channel = await rabbitmq_connection.channel()
-        
-        # Declare queue
-        await rabbitmq_channel.declare_queue("notifications", durable=True)
-    except Exception as e:
-        print(f"RabbitMQ connection failed: {e}")
+    # Connect to Redis
+    import redis.asyncio as aioredis
+    redis_client = await aioredis.from_url(REDIS_URL, decode_responses=True)
+    logger.info("Connected to Redis")
+    
+    # Connect to RabbitMQ with retry
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            rabbitmq_connection = await aio_pika.connect_robust(RABBITMQ_URL)
+            rabbitmq_channel = await rabbitmq_connection.channel()
+            await rabbitmq_channel.declare_queue("notifications", durable=True)
+            logger.info("Connected to RabbitMQ")
+            break
+        except Exception as e:
+            logger.warning(f"RabbitMQ connection attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
     
     # Create tables if not exist
     async with engine.begin() as conn:
@@ -204,6 +259,8 @@ async def startup_event():
 async def shutdown_event():
     if rabbitmq_connection:
         await rabbitmq_connection.close()
+    if redis_client:
+        await redis_client.close()
 
 @app.get("/")
 async def root():
@@ -215,7 +272,15 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    rabbitmq_healthy = rabbitmq_connection is not None and not rabbitmq_connection.is_closed
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "dependencies": {
+            "rabbitmq": "connected" if rabbitmq_healthy else "disconnected",
+            "redis": "connected" if redis_client else "disconnected"
+        }
+    }
 
 @app.post("/process", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
 async def process_payment(
@@ -223,8 +288,22 @@ async def process_payment(
     current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Process payment for a booking"""
+    """
+    Process payment for a booking.
+    
+    **Idempotency**: Provide `idempotency_key` to prevent duplicate payments.
+    If the same key is used twice, the original payment is returned.
+    """
     from sqlalchemy import select, update
+    
+    start_time = time.time()
+    
+    # Check idempotency first
+    if payment_data.idempotency_key:
+        existing_payment = await check_idempotency(payment_data.idempotency_key, db)
+        if existing_payment:
+            logger.info(f"Returning existing payment for idempotency key: {payment_data.idempotency_key}")
+            return existing_payment
     
     # Import Booking model (minimal version for query)
     from sqlalchemy import Table, MetaData
@@ -262,6 +341,7 @@ async def process_payment(
         amount=payment_data.amount,
         payment_method=payment_data.payment_method,
         transaction_id=transaction_id,
+        idempotency_key=payment_data.idempotency_key,
         status='completed',
         payment_date=datetime.utcnow()
     )
@@ -280,6 +360,17 @@ async def process_payment(
     
     await db.commit()
     await db.refresh(new_payment)
+    
+    # Store idempotency key
+    if payment_data.idempotency_key:
+        await store_idempotency(payment_data.idempotency_key, str(new_payment.id))
+    
+    # Record metrics
+    payment_counter.labels(status='success', method=payment_data.payment_method).inc()
+    payment_amount_histogram.observe(float(payment_data.amount))
+    payment_processing_histogram.observe(time.time() - start_time)
+    
+    logger.info(f"Payment processed: {transaction_id}, amount={payment_data.amount}")
     
     # Send notification via RabbitMQ
     notification_message = {
