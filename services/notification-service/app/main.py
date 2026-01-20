@@ -4,6 +4,8 @@ from datetime import datetime
 from typing import Optional, List
 import os
 import uuid
+import logging
+import time
 import aio_pika
 import json
 import asyncio
@@ -12,6 +14,19 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from pydantic import BaseModel
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter, Histogram, Gauge
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Custom metrics
+notification_counter = Counter('notifications_total', 'Total notifications', ['type', 'status'])
+notification_processing_histogram = Histogram('notification_processing_seconds', 'Notification processing duration')
+queue_messages_received = Counter('mq_messages_received_total', 'Messages received from queue')
+pending_notifications_gauge = Gauge('pending_notifications', 'Number of pending notifications')
+notification_send_histogram = Histogram('notification_send_seconds', 'Time to send notification', ['type'])
 
 # Configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://admin:admin123@postgres:5432/movie_booking")
@@ -59,6 +74,9 @@ app = FastAPI(
     description="Email & SMS Notifications via RabbitMQ",
     version="1.0.0"
 )
+
+# Prometheus instrumentation
+Instrumentator().instrument(app).expose(app)
 
 # CORS Middleware
 app.add_middleware(

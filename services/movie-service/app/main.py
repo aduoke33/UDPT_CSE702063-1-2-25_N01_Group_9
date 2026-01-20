@@ -4,6 +4,7 @@ from datetime import datetime, date, time
 from typing import Optional, List
 from decimal import Decimal
 import os
+import logging
 import redis.asyncio as redis
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
@@ -12,6 +13,19 @@ from sqlalchemy.dialects.postgresql import UUID
 import uuid
 from pydantic import BaseModel
 import httpx
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter, Histogram
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Custom metrics
+movie_requests = Counter('movie_requests_total', 'Total movie requests', ['endpoint', 'status'])
+showtime_requests = Counter('showtime_requests_total', 'Total showtime requests', ['endpoint'])
+cache_hits = Counter('cache_hits_total', 'Redis cache hits')
+cache_misses = Counter('cache_misses_total', 'Redis cache misses')
+db_query_histogram = Histogram('db_query_seconds', 'Database query duration', ['operation'])
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://admin:admin123@postgres:5432/movie_booking")
 REDIS_URL = os.getenv("REDIS_URL", "redis://:redis123@redis:6379/1")
@@ -66,6 +80,15 @@ class Showtime(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow)
+
+class Seat(Base):
+    __tablename__ = "seats"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    theater_id = Column(UUID(as_uuid=True), ForeignKey("theaters.id"), nullable=False)
+    seat_row = Column(String(5), nullable=False)
+    seat_number = Column(Integer, nullable=False)
+    seat_type = Column(String(20), default='regular')
 
 # Schemas
 class MovieCreate(BaseModel):
@@ -134,11 +157,39 @@ class ShowtimeResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class SeatResponse(BaseModel):
+    id: uuid.UUID
+    theater_id: uuid.UUID
+    seat_row: str
+    seat_number: int
+    seat_type: str
+    
+    class Config:
+        from_attributes = True
+
+class ShowtimeDetailResponse(BaseModel):
+    id: uuid.UUID
+    movie_id: uuid.UUID
+    theater_id: uuid.UUID
+    show_date: date
+    show_time: time
+    price: Decimal
+    available_seats: int
+    total_seats: int
+    movie: Optional[MovieResponse] = None
+    theater: Optional[TheaterResponse] = None
+    
+    class Config:
+        from_attributes = True
+
 app = FastAPI(
     title="Movie Service",
     description="Movie Catalog & Showtimes Management",
     version="1.0.0"
 )
+
+# Prometheus instrumentation
+Instrumentator().instrument(app).expose(app)
 
 # CORS Middleware
 app.add_middleware(
@@ -283,6 +334,100 @@ async def create_showtime(showtime_data: ShowtimeCreate, db: AsyncSession = Depe
     await db.commit()
     await db.refresh(new_showtime)
     return new_showtime
+
+@app.get("/showtimes/{showtime_id}", response_model=ShowtimeDetailResponse)
+async def get_showtime_detail(showtime_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Get showtime detail with movie and theater info"""
+    from sqlalchemy import select
+    
+    result = await db.execute(select(Showtime).filter(Showtime.id == showtime_id))
+    showtime = result.scalar_one_or_none()
+    
+    if not showtime:
+        raise HTTPException(status_code=404, detail="Showtime not found")
+    
+    # Get movie and theater
+    movie_result = await db.execute(select(Movie).filter(Movie.id == showtime.movie_id))
+    movie = movie_result.scalar_one_or_none()
+    
+    theater_result = await db.execute(select(Theater).filter(Theater.id == showtime.theater_id))
+    theater = theater_result.scalar_one_or_none()
+    
+    return ShowtimeDetailResponse(
+        id=showtime.id,
+        movie_id=showtime.movie_id,
+        theater_id=showtime.theater_id,
+        show_date=showtime.show_date,
+        show_time=showtime.show_time,
+        price=showtime.price,
+        available_seats=showtime.available_seats,
+        total_seats=showtime.total_seats,
+        movie=movie,
+        theater=theater
+    )
+
+@app.get("/seats/{theater_id}", response_model=List[SeatResponse])
+async def get_theater_seats(theater_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Get all seats for a theater"""
+    from sqlalchemy import select
+    
+    result = await db.execute(
+        select(Seat)
+        .filter(Seat.theater_id == theater_id)
+        .order_by(Seat.seat_row, Seat.seat_number)
+    )
+    seats = result.scalars().all()
+    return seats
+
+@app.get("/showtimes/{showtime_id}/available-seats")
+async def get_available_seats(showtime_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Get available seats for a showtime (checking Redis for booked seats)"""
+    from sqlalchemy import select
+    
+    # Get showtime
+    result = await db.execute(select(Showtime).filter(Showtime.id == showtime_id))
+    showtime = result.scalar_one_or_none()
+    
+    if not showtime:
+        raise HTTPException(status_code=404, detail="Showtime not found")
+    
+    # Get all seats for the theater
+    seats_result = await db.execute(
+        select(Seat)
+        .filter(Seat.theater_id == showtime.theater_id)
+        .order_by(Seat.seat_row, Seat.seat_number)
+    )
+    all_seats = seats_result.scalars().all()
+    
+    # Check which seats are booked in Redis
+    available_seats = []
+    booked_seats = []
+    
+    for seat in all_seats:
+        seat_key = f"seat:{showtime_id}:{seat.id}"
+        is_booked = await redis_client.get(seat_key) if redis_client else None
+        
+        seat_info = {
+            "id": str(seat.id),
+            "seat_row": seat.seat_row,
+            "seat_number": seat.seat_number,
+            "seat_type": seat.seat_type,
+            "is_available": is_booked is None
+        }
+        
+        if is_booked:
+            booked_seats.append(seat_info)
+        else:
+            available_seats.append(seat_info)
+    
+    return {
+        "showtime_id": str(showtime_id),
+        "total_seats": len(all_seats),
+        "available_count": len(available_seats),
+        "booked_count": len(booked_seats),
+        "available_seats": available_seats,
+        "booked_seats": booked_seats
+    }
 
 if __name__ == "__main__":
     import uvicorn

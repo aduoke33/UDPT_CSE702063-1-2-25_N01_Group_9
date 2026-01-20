@@ -4,6 +4,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from datetime import datetime, timedelta
 from typing import Optional
 import os
+import logging
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, EmailStr
@@ -13,6 +14,17 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, String, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter, Histogram
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Custom metrics
+login_counter = Counter('auth_logins_total', 'Total login attempts', ['status'])
+register_counter = Counter('auth_registrations_total', 'Total registration attempts', ['status'])
+token_verify_histogram = Histogram('auth_token_verify_seconds', 'Token verification duration')
 
 # =====================================================
 # CONFIGURATION
@@ -107,6 +119,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Prometheus instrumentation
+Instrumentator().instrument(app).expose(app)
+
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
@@ -160,30 +175,41 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     """Register a new user"""
     from sqlalchemy import select
     
-    # Check if user exists
-    result = await db.execute(select(User).filter(User.email == user_data.email))
-    if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    result = await db.execute(select(User).filter(User.username == user_data.username))
-    if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Username already taken")
-    
-    # Create new user
-    hashed_password = get_password_hash(user_data.password)
-    new_user = User(
-        email=user_data.email,
-        username=user_data.username,
-        password_hash=hashed_password,
-        full_name=user_data.full_name,
-        phone_number=user_data.phone_number
-    )
-    
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-    
-    return new_user
+    try:
+        # Check if user exists
+        result = await db.execute(select(User).filter(User.email == user_data.email))
+        if result.scalar_one_or_none():
+            register_counter.labels(status='email_exists').inc()
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
+        result = await db.execute(select(User).filter(User.username == user_data.username))
+        if result.scalar_one_or_none():
+            register_counter.labels(status='username_exists').inc()
+            raise HTTPException(status_code=400, detail="Username already taken")
+        
+        # Create new user
+        hashed_password = get_password_hash(user_data.password)
+        new_user = User(
+            email=user_data.email,
+            username=user_data.username,
+            password_hash=hashed_password,
+            full_name=user_data.full_name,
+            phone_number=user_data.phone_number
+        )
+        
+        db.add(new_user)
+        await db.commit()
+        await db.refresh(new_user)
+        
+        register_counter.labels(status='success').inc()
+        logger.info(f"New user registered: {user_data.username}")
+        return new_user
+    except HTTPException:
+        raise
+    except Exception as e:
+        register_counter.labels(status='error').inc()
+        logger.error(f"Registration error: {e}")
+        raise HTTPException(status_code=500, detail="Registration failed")
 
 @app.post("/token", response_model=Token)
 async def login(
@@ -198,6 +224,7 @@ async def login(
     user = result.scalar_one_or_none()
     
     if not user or not verify_password(form_data.password, user.password_hash):
+        login_counter.labels(status='failed').inc()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -205,6 +232,7 @@ async def login(
         )
     
     if not user.is_active:
+        login_counter.labels(status='inactive').inc()
         raise HTTPException(status_code=400, detail="Inactive user")
     
     # Create access token
@@ -222,6 +250,9 @@ async def login(
             access_token
         )
     
+    login_counter.labels(status='success').inc()
+    logger.info(f"User logged in: {user.username}")
+    
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -232,6 +263,9 @@ async def login(
 async def verify_token(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
     """Verify JWT token and return user info"""
     from sqlalchemy import select
+    import time
+    
+    start_time = time.time()
     
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -252,6 +286,8 @@ async def verify_token(token: str = Depends(oauth2_scheme), db: AsyncSession = D
     
     if user is None:
         raise credentials_exception
+    
+    token_verify_histogram.observe(time.time() - start_time)
     
     return {
         "user_id": str(user.id),

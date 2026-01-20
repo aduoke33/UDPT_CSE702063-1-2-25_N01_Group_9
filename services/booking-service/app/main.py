@@ -10,12 +10,27 @@ import uuid
 import random
 import string
 import httpx
+import logging
+import time
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, String, Integer, DateTime, DECIMAL, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from pydantic import BaseModel
 import asyncio
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter, Histogram, Gauge
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Custom metrics
+booking_counter = Counter('bookings_total', 'Total booking attempts', ['status'])
+lock_acquisition_histogram = Histogram('lock_acquisition_seconds', 'Lock acquisition duration')
+lock_wait_counter = Counter('lock_wait_total', 'Total lock wait/retry attempts')
+active_bookings_gauge = Gauge('active_bookings', 'Number of active pending bookings')
+seat_reservation_histogram = Histogram('seat_reservation_seconds', 'Seat reservation duration')
 
 # Configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://admin:admin123@postgres:5432/movie_booking")
@@ -82,6 +97,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Prometheus instrumentation
+Instrumentator().instrument(app).expose(app)
+
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
@@ -118,13 +136,16 @@ def generate_booking_code() -> str:
 
 async def acquire_lock(lock_name: str, expire_time: int = 10) -> bool:
     """Acquire distributed lock using Redis"""
+    start_time = time.time()
     lock_key = f"lock:{lock_name}"
     acquired = await redis_client.set(lock_key, "locked", nx=True, ex=expire_time)
+    lock_acquisition_histogram.observe(time.time() - start_time)
     return acquired is not None
 
 async def release_lock(lock_name: str):
     """Release distributed lock"""
     await redis_client.delete(f"lock:{lock_name}")
+    logger.info(f"Released lock: {lock_name}")
 
 @app.on_event("startup")
 async def startup_event():
@@ -162,8 +183,11 @@ async def book_tickets(
     """Book tickets with Redis distributed lock"""
     from sqlalchemy import select, update
     
+    start_time = time.time()
     showtime_id = str(booking_data.showtime_id)
     seat_ids = [str(sid) for sid in booking_data.seat_ids]
+    
+    logger.info(f"Booking attempt: user={current_user['user_id']}, showtime={showtime_id}, seats={len(seat_ids)}")
     
     # Acquire lock for this showtime
     lock_name = f"showtime:{showtime_id}"
@@ -172,12 +196,14 @@ async def book_tickets(
     
     while retry_count < max_retries:
         if await acquire_lock(lock_name, expire_time=10):
+            logger.info(f"Lock acquired for {lock_name} after {retry_count} retries")
             try:
                 # Verify seats availability in Redis
                 for seat_id in seat_ids:
                     seat_key = f"seat:{showtime_id}:{seat_id}"
                     is_booked = await redis_client.get(seat_key)
                     if is_booked:
+                        booking_counter.labels(status='seat_taken').inc()
                         raise HTTPException(
                             status_code=400,
                             detail=f"Seat {seat_id} is already booked"
@@ -190,9 +216,11 @@ async def book_tickets(
                     showtime = next((s for s in showtimes if s['id'] == showtime_id), None)
                     
                     if not showtime:
+                        booking_counter.labels(status='showtime_not_found').inc()
                         raise HTTPException(status_code=404, detail="Showtime not found")
                     
                     if showtime['available_seats'] < len(seat_ids):
+                        booking_counter.labels(status='no_seats').inc()
                         raise HTTPException(status_code=400, detail="Not enough seats available")
                 
                 # Calculate total price
@@ -231,6 +259,12 @@ async def book_tickets(
                 await db.commit()
                 await db.refresh(new_booking)
                 
+                # Record success metrics
+                booking_counter.labels(status='success').inc()
+                active_bookings_gauge.inc()
+                seat_reservation_histogram.observe(time.time() - start_time)
+                logger.info(f"Booking successful: booking_code={booking_code}, duration={time.time() - start_time:.3f}s")
+                
                 return new_booking
                 
             finally:
@@ -238,9 +272,13 @@ async def book_tickets(
                 await release_lock(lock_name)
         else:
             # Lock not acquired, retry
+            lock_wait_counter.inc()
             retry_count += 1
+            logger.warning(f"Lock wait: {lock_name}, retry {retry_count}/{max_retries}")
             await asyncio.sleep(0.5)
     
+    booking_counter.labels(status='timeout').inc()
+    logger.error(f"Booking failed: lock timeout for {lock_name}")
     raise HTTPException(status_code=503, detail="Service busy, please try again")
 
 @app.get("/bookings", response_model=List[BookingResponse])
@@ -288,6 +326,8 @@ async def cancel_booking(
     """Cancel a booking and release seats"""
     from sqlalchemy import select, update
     
+    logger.info(f"Cancel request: booking={booking_id}, user={current_user['user_id']}")
+    
     result = await db.execute(
         select(Booking).filter(
             Booking.id == booking_id,
@@ -330,6 +370,10 @@ async def cancel_booking(
         )
     
     await db.commit()
+    
+    active_bookings_gauge.dec()
+    booking_counter.labels(status='cancelled').inc()
+    logger.info(f"Booking cancelled: booking={booking_id}")
     
     return {"message": "Booking cancelled successfully"}
 

@@ -6,6 +6,8 @@ from typing import Optional, List
 from decimal import Decimal
 import os
 import uuid
+import logging
+import time
 import httpx
 import aio_pika
 import json
@@ -14,6 +16,19 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, String, DateTime, DECIMAL, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from pydantic import BaseModel
+from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import Counter, Histogram
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Custom metrics
+payment_counter = Counter('payments_total', 'Total payment attempts', ['status', 'method'])
+payment_amount_histogram = Histogram('payment_amount', 'Payment amount distribution', buckets=[10, 50, 100, 200, 500, 1000])
+payment_processing_histogram = Histogram('payment_processing_seconds', 'Payment processing duration')
+refund_counter = Counter('refunds_total', 'Total refund attempts', ['status'])
+message_queue_counter = Counter('mq_messages_total', 'Messages sent to queue', ['queue'])
 
 # Configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://admin:admin123@postgres:5432/movie_booking")
@@ -62,6 +77,9 @@ app = FastAPI(
     description="Payment Processing & Transaction Management",
     version="1.0.0"
 )
+
+# Prometheus instrumentation
+Instrumentator().instrument(app).expose(app)
 
 # CORS Middleware
 app.add_middleware(
