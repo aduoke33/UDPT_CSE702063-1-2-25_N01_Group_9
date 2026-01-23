@@ -7,6 +7,9 @@ SECURITY.md
 GLOSSARY.md
 docs/
 
+# Exception: Allow scripts README
+!scripts/README.md
+
 # Python
 __pycache__/
 *.py[cod]
