@@ -1,0 +1,266 @@
+# =====================================================
+# HELM CHART - DEFAULT VALUES
+# Movie Booking System Configuration
+# =====================================================
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Namespace
+namespace: movie-booking
+
+# =====================================================
+# AUTH SERVICE
+# =====================================================
+authService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: movie-booking/auth-service
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  env:
+    ALGORITHM: "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+
+# =====================================================
+# MOVIE SERVICE
+# =====================================================
+movieService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: movie-booking/movie-service
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# =====================================================
+# BOOKING SERVICE
+# =====================================================
+bookingService:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: movie-booking/booking-service
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 60
+
+# =====================================================
+# PAYMENT SERVICE
+# =====================================================
+paymentService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: movie-booking/payment-service
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+# =====================================================
+# NOTIFICATION SERVICE
+# =====================================================
+notificationService:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: movie-booking/notification-service
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+# =====================================================
+# API GATEWAY (NGINX)
+# =====================================================
+apiGateway:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: nginx
+    tag: alpine
+    pullPolicy: IfNotPresent
+  service:
+    type: LoadBalancer
+    port: 80
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# =====================================================
+# INGRESS
+# =====================================================
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  hosts:
+    - host: movie-booking.local
+      paths:
+        - path: /api
+          pathType: Prefix
+  tls: []
+
+# =====================================================
+# DATABASE - POSTGRESQL
+# =====================================================
+postgresql:
+  enabled: true
+  auth:
+    username: admin
+    password: admin123
+    database: movie_booking
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+
+# =====================================================
+# CACHE - REDIS
+# =====================================================
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: redis123
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# =====================================================
+# MESSAGE QUEUE - RABBITMQ
+# =====================================================
+rabbitmq:
+  enabled: true
+  auth:
+    username: admin
+    password: admin123
+  persistence:
+    enabled: true
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# =====================================================
+# MONITORING
+# =====================================================
+monitoring:
+  prometheus:
+    enabled: true
+    retention: 7d
+  grafana:
+    enabled: true
+    adminUser: admin
+    adminPassword: admin123
+
+# =====================================================
+# SECRETS
+# =====================================================
+secrets:
+  jwtSecretKey: "your-super-secret-jwt-key-change-in-production"
+  smtp:
+    host: "smtp.gmail.com"
+    port: "587"
+    user: ""
+    password: ""

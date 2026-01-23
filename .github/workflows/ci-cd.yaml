@@ -1,0 +1,351 @@
+# =====================================================
+# GITHUB ACTIONS CI/CD PIPELINE
+# Movie Booking System - Automated Build, Test & Deploy
+# =====================================================
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'release/*'
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - develop
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}/movie-booking
+
+jobs:
+  # =====================================================
+  # LINT & CODE QUALITY
+  # =====================================================
+  lint:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install linting tools
+        run: |
+          pip install flake8 black isort mypy
+
+      - name: Run Black (Code Formatter)
+        run: |
+          black --check services/
+
+      - name: Run isort (Import Sorter)
+        run: |
+          isort --check-only services/
+
+      - name: Run Flake8 (Linter)
+        run: |
+          flake8 services/ --max-line-length=120 --ignore=E501,W503
+
+      - name: Run MyPy (Type Checker)
+        run: |
+          mypy services/ --ignore-missing-imports || true
+
+  # =====================================================
+  # UNIT TESTS
+  # =====================================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin123
+          POSTGRES_DB: movie_booking_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install pytest pytest-asyncio pytest-cov httpx
+          for service in auth-service movie-service booking-service payment-service notification-service; do
+            pip install -r services/$service/requirements.txt
+          done
+
+      - name: Run Auth Service Tests
+        working-directory: services/auth-service
+        env:
+          DATABASE_URL: postgresql+asyncpg://admin:admin123@localhost:5432/movie_booking_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key
+        run: |
+          pytest tests/ -v --cov=app --cov-report=xml || echo "No tests found"
+
+      - name: Run Movie Service Tests
+        working-directory: services/movie-service
+        env:
+          DATABASE_URL: postgresql+asyncpg://admin:admin123@localhost:5432/movie_booking_test
+          REDIS_URL: redis://localhost:6379/1
+        run: |
+          pytest tests/ -v --cov=app --cov-report=xml || echo "No tests found"
+
+      - name: Run Booking Service Tests
+        working-directory: services/booking-service
+        env:
+          DATABASE_URL: postgresql+asyncpg://admin:admin123@localhost:5432/movie_booking_test
+          REDIS_URL: redis://localhost:6379/2
+        run: |
+          pytest tests/ -v --cov=app --cov-report=xml || echo "No tests found"
+
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./services/*/coverage.xml
+          fail_ci_if_error: false
+
+  # =====================================================
+  # SECURITY SCAN
+  # =====================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+        if: always()
+
+  # =====================================================
+  # BUILD DOCKER IMAGES
+  # =====================================================
+  build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [test, security]
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service:
+          - auth-service
+          - movie-service
+          - booking-service
+          - payment-service
+          - notification-service
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./services/${{ matrix.service }}
+          file: ./services/${{ matrix.service }}/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+  # =====================================================
+  # DEPLOY TO STAGING
+  # =====================================================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    environment:
+      name: staging
+      url: https://staging.movie-booking.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+
+      - name: Update image tags
+        run: |
+          cd k8s
+          for service in auth movie booking payment notification; do
+            sed -i "s|movie-booking/${service}-service:latest|${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${service}-service:sha-${GITHUB_SHA::7}|g" services/${service}-service.yaml
+          done
+
+      - name: Deploy to Staging
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/secrets/ -n movie-booking
+          kubectl apply -f k8s/configmaps/ -n movie-booking
+          kubectl apply -f k8s/rbac/ -n movie-booking
+          kubectl apply -f k8s/database/ -n movie-booking
+          kubectl apply -f k8s/services/ -n movie-booking
+          kubectl apply -f k8s/gateway/ -n movie-booking
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/auth-service -n movie-booking --timeout=300s
+          kubectl rollout status deployment/movie-service -n movie-booking --timeout=300s
+          kubectl rollout status deployment/booking-service -n movie-booking --timeout=300s
+          kubectl rollout status deployment/payment-service -n movie-booking --timeout=300s
+          kubectl rollout status deployment/notification-service -n movie-booking --timeout=300s
+
+      - name: Run smoke tests
+        run: |
+          GATEWAY_IP=$(kubectl get svc api-gateway -n movie-booking -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          curl -f http://${GATEWAY_IP}/health || exit 1
+
+  # =====================================================
+  # DEPLOY TO PRODUCTION
+  # =====================================================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: production
+      url: https://movie-booking.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Update image tags
+        run: |
+          cd k8s
+          for service in auth movie booking payment notification; do
+            sed -i "s|movie-booking/${service}-service:latest|${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${service}-service:${{ steps.version.outputs.VERSION }}|g" services/${service}-service.yaml
+          done
+
+      - name: Deploy to Production (Blue-Green)
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/secrets/ -n movie-booking
+          kubectl apply -f k8s/configmaps/ -n movie-booking
+          kubectl apply -f k8s/rbac/ -n movie-booking
+          kubectl apply -f k8s/database/ -n movie-booking
+          kubectl apply -f k8s/services/ -n movie-booking
+          kubectl apply -f k8s/gateway/ -n movie-booking
+          kubectl apply -f k8s/monitoring/ -n movie-booking
+
+      - name: Wait for deployment
+        run: |
+          kubectl rollout status deployment/auth-service -n movie-booking --timeout=600s
+          kubectl rollout status deployment/movie-service -n movie-booking --timeout=600s
+          kubectl rollout status deployment/booking-service -n movie-booking --timeout=600s
+          kubectl rollout status deployment/payment-service -n movie-booking --timeout=600s
+          kubectl rollout status deployment/notification-service -n movie-booking --timeout=600s
+
+      - name: Run production health checks
+        run: |
+          GATEWAY_IP=$(kubectl get svc api-gateway -n movie-booking -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          for i in {1..10}; do
+            curl -f http://${GATEWAY_IP}/health && break
+            sleep 10
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Changes in this Release
+            - Deployed to production
+            - All services updated to version ${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false

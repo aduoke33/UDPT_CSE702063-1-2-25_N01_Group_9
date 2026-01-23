@@ -1,0 +1,156 @@
+# =====================================================
+# APPLICATION CONFIGMAPS
+# Movie Booking System - Shared Configuration
+# =====================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: movie-booking
+  labels:
+    app: movie-booking
+data:
+  # Database Configuration
+  DATABASE_HOST: "postgres-service"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "movie_booking"
+  
+  # Redis Configuration
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  
+  # RabbitMQ Configuration
+  RABBITMQ_HOST: "rabbitmq-service"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_MANAGEMENT_PORT: "15672"
+  
+  # Service Discovery
+  AUTH_SERVICE_URL: "http://auth-service:8000"
+  MOVIE_SERVICE_URL: "http://movie-service:8000"
+  BOOKING_SERVICE_URL: "http://booking-service:8000"
+  PAYMENT_SERVICE_URL: "http://payment-service:8000"
+  NOTIFICATION_SERVICE_URL: "http://notification-service:8000"
+  
+  # JWT Configuration
+  ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  
+  # Application Settings
+  LOG_LEVEL: "INFO"
+  ENVIRONMENT: "production"
+  
+  # Monitoring
+  PROMETHEUS_ENABLED: "true"
+  METRICS_PORT: "9090"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: movie-booking
+data:
+  nginx.conf: |
+    events {
+        worker_connections 2048;
+    }
+    
+    http {
+        upstream auth_service {
+            least_conn;
+            server auth-service:8000 max_fails=3 fail_timeout=30s;
+        }
+
+        upstream movie_service {
+            least_conn;
+            server movie-service:8000 max_fails=3 fail_timeout=30s;
+        }
+
+        upstream booking_service {
+            least_conn;
+            server booking-service:8000 max_fails=3 fail_timeout=30s;
+        }
+
+        upstream payment_service {
+            least_conn;
+            server payment-service:8000 max_fails=3 fail_timeout=30s;
+        }
+
+        upstream notification_service {
+            least_conn;
+            server notification-service:8000 max_fails=3 fail_timeout=30s;
+        }
+
+        # Rate limiting zones
+        limit_req_zone $binary_remote_addr zone=general:10m rate=60r/m;
+        limit_req_zone $binary_remote_addr zone=booking:10m rate=10r/m;
+        limit_req_zone $binary_remote_addr zone=auth:10m rate=20r/m;
+
+        server {
+            listen 80;
+            server_name localhost;
+
+            # Security headers
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-XSS-Protection "1; mode=block" always;
+            add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+            # Health check
+            location /health {
+                return 200 'OK';
+                add_header Content-Type text/plain;
+            }
+
+            # Auth Service
+            location /api/auth/ {
+                limit_req zone=auth burst=10 nodelay;
+                rewrite ^/api/auth/(.*) /$1 break;
+                proxy_pass http://auth_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_connect_timeout 30s;
+                proxy_read_timeout 30s;
+            }
+
+            # Movie Service
+            location /api/movies/ {
+                limit_req zone=general burst=20 nodelay;
+                rewrite ^/api/movies/(.*) /$1 break;
+                proxy_pass http://movie_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+
+            # Booking Service
+            location /api/bookings/ {
+                limit_req zone=booking burst=5 nodelay;
+                rewrite ^/api/bookings/(.*) /$1 break;
+                proxy_pass http://booking_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+
+            # Payment Service
+            location /api/payments/ {
+                limit_req zone=general burst=10 nodelay;
+                rewrite ^/api/payments/(.*) /$1 break;
+                proxy_pass http://payment_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+
+            # Notification Service
+            location /api/notifications/ {
+                limit_req zone=general burst=10 nodelay;
+                rewrite ^/api/notifications/(.*) /$1 break;
+                proxy_pass http://notification_service;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            }
+        }
+    }

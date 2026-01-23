@@ -1,0 +1,95 @@
+# =====================================================
+# DOCKER COMPOSE - DEVELOPMENT OVERRIDE
+# Movie Booking System - Local Development
+# =====================================================
+
+version: "3.8"
+
+services:
+  # Override for hot-reload in development
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    volumes:
+      - ./services/auth-service/app:/app/app:ro
+      - ./services/shared:/app/shared:ro
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  movie-service:
+    build:
+      context: ./services/movie-service
+      dockerfile: Dockerfile
+    volumes:
+      - ./services/movie-service/app:/app/app:ro
+      - ./services/shared:/app/shared:ro
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  booking-service:
+    build:
+      context: ./services/booking-service
+      dockerfile: Dockerfile
+    volumes:
+      - ./services/booking-service/app:/app/app:ro
+      - ./services/shared:/app/shared:ro
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  payment-service:
+    build:
+      context: ./services/payment-service
+      dockerfile: Dockerfile
+    volumes:
+      - ./services/payment-service/app:/app/app:ro
+      - ./services/shared:/app/shared:ro
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    volumes:
+      - ./services/notification-service/app:/app/app:ro
+      - ./services/shared:/app/shared:ro
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Development tools
+  adminer:
+    image: adminer:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - movie-booking-network
+    depends_on:
+      - postgres
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    restart: always
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - movie-booking-network
+    depends_on:
+      - redis
+
+networks:
+  movie-booking-network:
+    driver: bridge

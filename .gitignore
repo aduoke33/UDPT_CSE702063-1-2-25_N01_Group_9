@@ -1,3 +1,29 @@
+# Ignore documentation files the user asked to keep locally
+README.md
+ARCHITECTURE.md
+SYSTEM_DESIGN.md
+OPERATIONS.md
+SECURITY.md
+GLOSSARY.md
+docs/
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+*.env
+
+# Editor / OS
+.vscode/
+*.swp
+Thumbs.db
+.DS_Store
+
+# Docker
+*.tgz
+docker-compose.override.yml
 # .gitignore for Distributed Movie Booking System
 
 # Environment Variables
@@ -104,3 +130,6 @@ Q&A_DETAILED.md
 QUICKSTART.md
 README_FULL.md
 TECHNICAL_ARCHITECTURE.md
+SYSTEM_ARCHITECTURE_DETAILED.md
+KUBERNETES_ARCHITECTURE.md
+CICD_PIPELINE.md

@@ -1,0 +1,91 @@
+# =====================================================
+# SERVICE ACCOUNT & RBAC
+# Role-Based Access Control for Kubernetes
+# =====================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: movie-booking-sa
+  namespace: movie-booking
+  labels:
+    app: movie-booking
+---
+# Role for reading ConfigMaps and Secrets
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: movie-booking-role
+  namespace: movie-booking
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["services"]
+  verbs: ["get", "list"]
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: movie-booking-rolebinding
+  namespace: movie-booking
+subjects:
+- kind: ServiceAccount
+  name: movie-booking-sa
+  namespace: movie-booking
+roleRef:
+  kind: Role
+  name: movie-booking-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Pod Disruption Budget - Auth Service
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: auth-service-pdb
+  namespace: movie-booking
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: auth-service
+---
+# Pod Disruption Budget - Movie Service
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: movie-service-pdb
+  namespace: movie-booking
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: movie-service
+---
+# Pod Disruption Budget - Booking Service
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: booking-service-pdb
+  namespace: movie-booking
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: booking-service
+---
+# Pod Disruption Budget - Payment Service
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-service-pdb
+  namespace: movie-booking
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: payment-service

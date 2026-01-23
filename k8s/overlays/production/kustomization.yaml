@@ -1,0 +1,68 @@
+# =====================================================
+# KUSTOMIZATION - PRODUCTION OVERLAY
+# Movie Booking System - Production Environment
+# =====================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: movie-booking
+
+resources:
+  - ../../base
+
+commonLabels:
+  environment: production
+
+replicas:
+  - name: auth-service
+    count: 3
+  - name: movie-service
+    count: 3
+  - name: booking-service
+    count: 5
+  - name: payment-service
+    count: 3
+  - name: notification-service
+    count: 3
+  - name: api-gateway
+    count: 3
+
+images:
+  - name: movie-booking/auth-service
+    newTag: v1.0.0
+  - name: movie-booking/movie-service
+    newTag: v1.0.0
+  - name: movie-booking/booking-service
+    newTag: v1.0.0
+  - name: movie-booking/payment-service
+    newTag: v1.0.0
+  - name: movie-booking/notification-service
+    newTag: v1.0.0
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 512Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 250m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 1Gi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 500m
+    target:
+      kind: Deployment
+      labelSelector: "tier=service"
+
+  # Production-specific ingress
+  - patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: api.movie-booking.com
+    target:
+      kind: Ingress
+      name: api-gateway-ingress

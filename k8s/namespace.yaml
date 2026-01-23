@@ -1,0 +1,44 @@
+# =====================================================
+# KUBERNETES NAMESPACE
+# Movie Booking System - Distributed Application
+# =====================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: movie-booking
+  labels:
+    app: movie-booking
+    environment: production
+---
+# Resource Quotas for Namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: movie-booking-quota
+  namespace: movie-booking
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: "16Gi"
+    limits.cpu: "16"
+    limits.memory: "32Gi"
+    pods: "50"
+    services: "20"
+    configmaps: "20"
+    secrets: "20"
+---
+# LimitRange for default resource limits
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: movie-booking-limits
+  namespace: movie-booking
+spec:
+  limits:
+  - default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "100m"
+      memory: "128Mi"
+    type: Container

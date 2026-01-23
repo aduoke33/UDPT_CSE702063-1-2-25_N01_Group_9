@@ -1,0 +1,53 @@
+# =====================================================
+# KUSTOMIZATION - STAGING OVERLAY
+# Movie Booking System - Staging Environment
+# =====================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: movie-booking-staging
+
+resources:
+  - ../../base
+
+namePrefix: staging-
+
+commonLabels:
+  environment: staging
+
+replicas:
+  - name: auth-service
+    count: 2
+  - name: movie-service
+    count: 2
+  - name: booking-service
+    count: 2
+  - name: payment-service
+    count: 2
+  - name: notification-service
+    count: 2
+
+images:
+  - name: movie-booking/auth-service
+    newTag: staging
+  - name: movie-booking/movie-service
+    newTag: staging
+  - name: movie-booking/booking-service
+    newTag: staging
+  - name: movie-booking/payment-service
+    newTag: staging
+  - name: movie-booking/notification-service
+    newTag: staging
+
+patches:
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 256Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 100m
+    target:
+      kind: Deployment
+      labelSelector: "tier=service"

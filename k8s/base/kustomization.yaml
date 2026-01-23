@@ -1,0 +1,62 @@
+# =====================================================
+# KUSTOMIZATION BASE
+# Movie Booking System - Kustomize Configuration
+# =====================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: movie-booking
+
+resources:
+  # Namespace and RBAC
+  - ../namespace.yaml
+  - ../rbac/rbac.yaml
+  
+  # ConfigMaps and Secrets
+  - ../configmaps/app-config.yaml
+  - ../secrets/app-secrets.yaml
+  
+  # Database layer
+  - ../database/postgres.yaml
+  - ../database/redis.yaml
+  - ../database/rabbitmq.yaml
+  - ../database/postgres-init-configmap.yaml
+  
+  # Services
+  - ../services/auth-service.yaml
+  - ../services/movie-service.yaml
+  - ../services/booking-service.yaml
+  - ../services/payment-service.yaml
+  - ../services/notification-service.yaml
+  
+  # Gateway
+  - ../gateway/api-gateway.yaml
+  
+  # Autoscaling
+  - ../autoscaling/hpa.yaml
+  - ../autoscaling/pdb.yaml
+  
+  # Network Policies
+  - ../network/network-policies.yaml
+  
+  # Monitoring
+  - ../monitoring/prometheus-grafana.yaml
+  - ../monitoring/alertmanager.yaml
+  - ../monitoring/tracing.yaml
+
+commonLabels:
+  app.kubernetes.io/name: movie-booking
+  app.kubernetes.io/managed-by: kustomize
+
+images:
+  - name: movie-booking/auth-service
+    newTag: latest
+  - name: movie-booking/movie-service
+    newTag: latest
+  - name: movie-booking/booking-service
+    newTag: latest
+  - name: movie-booking/payment-service
+    newTag: latest
+  - name: movie-booking/notification-service
+    newTag: latest

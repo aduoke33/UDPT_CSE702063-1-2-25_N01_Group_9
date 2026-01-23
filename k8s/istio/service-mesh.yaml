@@ -1,0 +1,241 @@
+# =====================================================
+# SERVICE MESH CONFIGURATION
+# Istio Configuration for Movie Booking System
+# =====================================================
+---
+# Virtual Service for API Gateway
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-gateway-vs
+  namespace: movie-booking
+spec:
+  hosts:
+    - "movie-booking.example.com"
+    - "api-gateway"
+  gateways:
+    - movie-booking-gateway
+  http:
+    - match:
+        - uri:
+            prefix: /api/auth
+      route:
+        - destination:
+            host: auth-service
+            port:
+              number: 8000
+          weight: 100
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+        retryOn: 5xx,reset,connect-failure
+        
+    - match:
+        - uri:
+            prefix: /api/movies
+      route:
+        - destination:
+            host: movie-service
+            port:
+              number: 8000
+          weight: 100
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+        
+    - match:
+        - uri:
+            prefix: /api/bookings
+      route:
+        - destination:
+            host: booking-service
+            port:
+              number: 8000
+          weight: 100
+      timeout: 60s
+      retries:
+        attempts: 3
+        perTryTimeout: 20s
+        
+    - match:
+        - uri:
+            prefix: /api/payments
+      route:
+        - destination:
+            host: payment-service
+            port:
+              number: 8000
+          weight: 100
+      timeout: 60s
+      retries:
+        attempts: 2
+        perTryTimeout: 30s
+        
+    - match:
+        - uri:
+            prefix: /api/notifications
+      route:
+        - destination:
+            host: notification-service
+            port:
+              number: 8000
+          weight: 100
+---
+# Destination Rules for services
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: auth-service-dr
+  namespace: movie-booking
+spec:
+  host: auth-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        h2UpgradePolicy: UPGRADE
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: movie-service-dr
+  namespace: movie-booking
+spec:
+  host: movie-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: booking-service-dr
+  namespace: movie-booking
+spec:
+  host: booking-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 200
+      http:
+        http1MaxPendingRequests: 200
+        http2MaxRequests: 2000
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 3
+      interval: 30s
+      baseEjectionTime: 60s
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: payment-service-dr
+  namespace: movie-booking
+spec:
+  host: payment-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+    loadBalancer:
+      simple: ROUND_ROBIN
+    outlierDetection:
+      consecutive5xxErrors: 3
+      interval: 30s
+      baseEjectionTime: 60s
+---
+# Istio Gateway
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: movie-booking-gateway
+  namespace: movie-booking
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "movie-booking.example.com"
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "movie-booking.example.com"
+      tls:
+        mode: SIMPLE
+        credentialName: movie-booking-tls
+---
+# Peer Authentication (mTLS)
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: movie-booking
+spec:
+  mtls:
+    mode: STRICT
+---
+# Authorization Policy - Allow only specific paths
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: api-authz
+  namespace: movie-booking
+spec:
+  selector:
+    matchLabels:
+      tier: service
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/movie-booking/sa/api-gateway"]
+      to:
+        - operation:
+            paths: ["/api/*", "/health", "/metrics"]
+---
+# Request Authentication (JWT)
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+  namespace: movie-booking
+spec:
+  selector:
+    matchLabels:
+      tier: service
+  jwtRules:
+    - issuer: "movie-booking-auth"
+      jwksUri: "http://auth-service:8000/.well-known/jwks.json"
+      forwardOriginalToken: true

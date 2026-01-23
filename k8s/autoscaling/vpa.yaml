@@ -1,0 +1,133 @@
+# =====================================================
+# VERTICAL POD AUTOSCALER (VPA) CONFIGURATION
+# Movie Booking System - Resource Optimization
+# =====================================================
+
+# Note: VPA requires the VPA controller to be installed in the cluster
+# Install with: kubectl apply -f https://github.com/kubernetes/autoscaler/releases/latest/download/vpa.yaml
+
+---
+# Auth Service VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: auth-service-vpa
+  namespace: movie-booking
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-service
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: auth-service
+        minAllowed:
+          cpu: 100m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 1
+          memory: 1Gi
+        controlledResources: ["cpu", "memory"]
+        controlledValues: RequestsAndLimits
+---
+# Movie Service VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: movie-service-vpa
+  namespace: movie-booking
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: movie-service
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: movie-service
+        minAllowed:
+          cpu: 100m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 1
+          memory: 1Gi
+        controlledResources: ["cpu", "memory"]
+        controlledValues: RequestsAndLimits
+---
+# Booking Service VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: booking-service-vpa
+  namespace: movie-booking
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: booking-service
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: booking-service
+        minAllowed:
+          cpu: 200m
+          memory: 256Mi
+        maxAllowed:
+          cpu: 2
+          memory: 2Gi
+        controlledResources: ["cpu", "memory"]
+        controlledValues: RequestsAndLimits
+---
+# Payment Service VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: payment-service-vpa
+  namespace: movie-booking
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: payment-service
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: payment-service
+        minAllowed:
+          cpu: 100m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 1
+          memory: 1Gi
+        controlledResources: ["cpu", "memory"]
+        controlledValues: RequestsAndLimits
+---
+# Notification Service VPA
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: notification-service-vpa
+  namespace: movie-booking
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: notification-service
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+      - containerName: notification-service
+        minAllowed:
+          cpu: 100m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 500m
+          memory: 512Mi
+        controlledResources: ["cpu", "memory"]
+        controlledValues: RequestsAndLimits

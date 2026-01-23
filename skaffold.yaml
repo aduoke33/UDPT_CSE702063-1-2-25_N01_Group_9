@@ -1,0 +1,133 @@
+# =====================================================
+# SKAFFOLD CONFIGURATION
+# Movie Booking System - Local Development with K8s
+# =====================================================
+
+apiVersion: skaffold/v4beta6
+kind: Config
+metadata:
+  name: movie-booking
+
+build:
+  artifacts:
+    - image: movie-booking/auth-service
+      context: services/auth-service
+      docker:
+        dockerfile: Dockerfile
+    - image: movie-booking/movie-service
+      context: services/movie-service
+      docker:
+        dockerfile: Dockerfile
+    - image: movie-booking/booking-service
+      context: services/booking-service
+      docker:
+        dockerfile: Dockerfile
+    - image: movie-booking/payment-service
+      context: services/payment-service
+      docker:
+        dockerfile: Dockerfile
+    - image: movie-booking/notification-service
+      context: services/notification-service
+      docker:
+        dockerfile: Dockerfile
+  local:
+    push: false
+    useBuildkit: true
+
+deploy:
+  helm:
+    releases:
+      - name: movie-booking
+        chartPath: helm/movie-booking
+        namespace: movie-booking
+        createNamespace: true
+        setValues:
+          image.pullPolicy: Never
+
+profiles:
+  - name: dev
+    activation:
+      - command: dev
+    build:
+      local:
+        push: false
+    deploy:
+      helm:
+        releases:
+          - name: movie-booking
+            chartPath: helm/movie-booking
+            namespace: movie-booking-dev
+            createNamespace: true
+            setValues:
+              replicaCount: 1
+              image.pullPolicy: Never
+
+  - name: staging
+    build:
+      artifacts:
+        - image: ghcr.io/your-org/movie-booking/auth-service
+          context: services/auth-service
+        - image: ghcr.io/your-org/movie-booking/movie-service
+          context: services/movie-service
+        - image: ghcr.io/your-org/movie-booking/booking-service
+          context: services/booking-service
+        - image: ghcr.io/your-org/movie-booking/payment-service
+          context: services/payment-service
+        - image: ghcr.io/your-org/movie-booking/notification-service
+          context: services/notification-service
+    deploy:
+      helm:
+        releases:
+          - name: movie-booking
+            chartPath: helm/movie-booking
+            namespace: movie-booking-staging
+            createNamespace: true
+            setValues:
+              replicaCount: 2
+              environment: staging
+
+  - name: production
+    build:
+      artifacts:
+        - image: ghcr.io/your-org/movie-booking/auth-service
+          context: services/auth-service
+        - image: ghcr.io/your-org/movie-booking/movie-service
+          context: services/movie-service
+        - image: ghcr.io/your-org/movie-booking/booking-service
+          context: services/booking-service
+        - image: ghcr.io/your-org/movie-booking/payment-service
+          context: services/payment-service
+        - image: ghcr.io/your-org/movie-booking/notification-service
+          context: services/notification-service
+    deploy:
+      helm:
+        releases:
+          - name: movie-booking
+            chartPath: helm/movie-booking
+            namespace: movie-booking
+            setValues:
+              replicaCount: 3
+              environment: production
+              autoscaling.enabled: true
+
+portForward:
+  - resourceType: service
+    resourceName: api-gateway
+    namespace: movie-booking
+    port: 80
+    localPort: 8000
+  - resourceType: service
+    resourceName: postgres
+    namespace: movie-booking
+    port: 5432
+    localPort: 5432
+  - resourceType: service
+    resourceName: grafana
+    namespace: movie-booking
+    port: 3000
+    localPort: 3000
+  - resourceType: service
+    resourceName: prometheus
+    namespace: movie-booking
+    port: 9090
+    localPort: 9090

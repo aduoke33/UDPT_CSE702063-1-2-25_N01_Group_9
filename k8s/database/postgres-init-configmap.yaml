@@ -1,0 +1,211 @@
+-- =====================================================
+-- DATABASE INITIALIZATION SCRIPT (POSTGRES CONFIGMAP)
+-- Movie Booking System - For Kubernetes
+-- =====================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: movie-booking
+data:
+  init.sql: |
+    -- Create UUID extension
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+    -- =====================================================
+    -- USERS TABLE
+    -- =====================================================
+    CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        full_name VARCHAR(255),
+        phone_number VARCHAR(20),
+        role VARCHAR(20) DEFAULT 'customer' CHECK (role IN ('customer', 'admin', 'staff')),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+
+    -- =====================================================
+    -- MOVIES TABLE
+    -- =====================================================
+    CREATE TABLE IF NOT EXISTS movies (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        duration_minutes INTEGER NOT NULL,
+        genre VARCHAR(100),
+        language VARCHAR(50),
+        rating VARCHAR(10),
+        release_date DATE,
+        poster_url VARCHAR(500),
+        trailer_url VARCHAR(500),
+        director VARCHAR(255),
+        cast TEXT,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_movies_title ON movies(title);
+    CREATE INDEX IF NOT EXISTS idx_movies_release_date ON movies(release_date);
+
+    -- =====================================================
+    -- THEATERS TABLE
+    -- =====================================================
+    CREATE TABLE IF NOT EXISTS theaters (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        name VARCHAR(255) NOT NULL,
+        location VARCHAR(500),
+        city VARCHAR(100),
+        total_seats INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- =====================================================
+    -- SHOWTIMES TABLE
+    -- =====================================================
+    CREATE TABLE IF NOT EXISTS showtimes (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        movie_id UUID NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+        theater_id UUID NOT NULL REFERENCES theaters(id) ON DELETE CASCADE,
+        show_date DATE NOT NULL,
+        show_time TIME NOT NULL,
+        price DECIMAL(10, 2) NOT NULL,
+        available_seats INTEGER NOT NULL,
+        total_seats INTEGER NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_showtimes_movie ON showtimes(movie_id);
+    CREATE INDEX IF NOT EXISTS idx_showtimes_theater ON showtimes(theater_id);
+    CREATE INDEX IF NOT EXISTS idx_showtimes_date ON showtimes(show_date);
+
+    -- =====================================================
+    -- SEATS TABLE
+    -- =====================================================
+    CREATE TABLE IF NOT EXISTS seats (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        theater_id UUID NOT NULL REFERENCES theaters(id) ON DELETE CASCADE,
+        seat_row VARCHAR(5) NOT NULL,
+        seat_number INTEGER NOT NULL,
+        seat_type VARCHAR(20) DEFAULT 'regular' CHECK (seat_type IN ('regular', 'vip', 'premium')),
+        UNIQUE(theater_id, seat_row, seat_number)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_seats_theater ON seats(theater_id);
+
+    -- =====================================================
+    -- BOOKINGS TABLE
+    -- =====================================================
+    CREATE TABLE IF NOT EXISTS bookings (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        showtime_id UUID NOT NULL REFERENCES showtimes(id) ON DELETE CASCADE,
+        booking_code VARCHAR(20) UNIQUE NOT NULL,
+        total_seats INTEGER NOT NULL,
+        total_price DECIMAL(10, 2) NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed', 'expired')),
+        payment_status VARCHAR(20) DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid', 'paid', 'refunded')),
+        booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id);
+    CREATE INDEX IF NOT EXISTS idx_bookings_showtime ON bookings(showtime_id);
+    CREATE INDEX IF NOT EXISTS idx_bookings_code ON bookings(booking_code);
+    CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+
+    -- =====================================================
+    -- BOOKING_SEATS TABLE
+    -- =====================================================
+    CREATE TABLE IF NOT EXISTS booking_seats (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+        seat_id UUID NOT NULL REFERENCES seats(id) ON DELETE CASCADE,
+        showtime_id UUID NOT NULL REFERENCES showtimes(id) ON DELETE CASCADE,
+        status VARCHAR(20) DEFAULT 'reserved' CHECK (status IN ('reserved', 'booked', 'cancelled', 'expired')),
+        UNIQUE(showtime_id, seat_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_booking_seats_booking ON booking_seats(booking_id);
+    CREATE INDEX IF NOT EXISTS idx_booking_seats_showtime_seat ON booking_seats(showtime_id, seat_id);
+
+    -- =====================================================
+    -- PAYMENTS TABLE
+    -- =====================================================
+    CREATE TABLE IF NOT EXISTS payments (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        booking_id UUID NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+        amount DECIMAL(10, 2) NOT NULL,
+        payment_method VARCHAR(50),
+        transaction_id VARCHAR(255) UNIQUE,
+        idempotency_key VARCHAR(255) UNIQUE,
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'refunded')),
+        payment_date TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_payments_booking ON payments(booking_id);
+    CREATE INDEX IF NOT EXISTS idx_payments_transaction ON payments(transaction_id);
+
+    -- =====================================================
+    -- NOTIFICATIONS TABLE
+    -- =====================================================
+    CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        subject VARCHAR(255),
+        message TEXT NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed')),
+        sent_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+    CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
+
+    -- =====================================================
+    -- SAMPLE DATA
+    -- =====================================================
+    
+    -- Insert sample theaters
+    INSERT INTO theaters (id, name, location, city, total_seats) VALUES
+    ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'CGV Vincom Center', '72 Lê Thánh Tôn, Quận 1', 'Ho Chi Minh', 150),
+    ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Lotte Cinema Landmark', '772 Điện Biên Phủ, Bình Thạnh', 'Ho Chi Minh', 120),
+    ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13', 'Galaxy Cinema Nguyễn Du', '116 Nguyễn Du, Quận 1', 'Ho Chi Minh', 100)
+    ON CONFLICT DO NOTHING;
+
+    -- Insert sample movies
+    INSERT INTO movies (id, title, description, duration_minutes, genre, language, rating, release_date, director) VALUES
+    ('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'Avengers: Endgame', 'The epic conclusion to the Infinity Saga', 181, 'Action, Sci-Fi', 'English', 'PG-13', '2019-04-26', 'Anthony & Joe Russo'),
+    ('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'Parasite', 'A tale of two families', 132, 'Thriller, Drama', 'Korean', 'R', '2019-05-30', 'Bong Joon-ho'),
+    ('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13', 'Spirited Away', 'A young girl in a world of spirits', 125, 'Animation, Fantasy', 'Japanese', 'PG', '2001-07-20', 'Hayao Miyazaki')
+    ON CONFLICT DO NOTHING;
+
+    -- Insert sample seats for first theater
+    INSERT INTO seats (theater_id, seat_row, seat_number, seat_type)
+    SELECT 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', chr(64 + row_num), seat_num, 
+           CASE WHEN row_num <= 2 THEN 'vip' WHEN row_num >= 9 THEN 'premium' ELSE 'regular' END
+    FROM generate_series(1, 10) AS row_num, generate_series(1, 15) AS seat_num
+    ON CONFLICT DO NOTHING;
+
+    -- Insert sample showtimes
+    INSERT INTO showtimes (id, movie_id, theater_id, show_date, show_time, price, available_seats, total_seats) VALUES
+    ('c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', CURRENT_DATE + 1, '10:00:00', 85000, 150, 150),
+    ('c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', CURRENT_DATE + 1, '14:00:00', 95000, 150, 150),
+    ('c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13', 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', CURRENT_DATE + 1, '18:00:00', 105000, 150, 150),
+    ('c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14', 'b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', CURRENT_DATE + 2, '11:00:00', 75000, 120, 120)
+    ON CONFLICT DO NOTHING;

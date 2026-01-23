@@ -1,0 +1,95 @@
+version: "3"
+
+services:
+  unit-tests:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./services:/app/services
+    command: |
+      bash -c "
+        pip install pytest pytest-cov pytest-asyncio httpx aiohttp &&
+        for service in auth-service movie-service booking-service payment-service notification-service; do
+          echo '========================================='
+          echo \"Testing \$service\"
+          echo '========================================='
+          cd /app/services/\$service
+          pip install -r requirements.txt
+          python -m pytest tests/ -v --tb=short || exit 1
+          cd /app
+        done
+      "
+
+  integration-tests:
+    image: curlimages/curl:latest
+    depends_on:
+      - auth-service
+      - movie-service
+      - booking-service
+      - payment-service
+      - notification-service
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Waiting for services to be ready..."
+        sleep 30
+        
+        echo "Testing Auth Service..."
+        curl -f http://auth-service:8000/health || exit 1
+        
+        echo "Testing Movie Service..."
+        curl -f http://movie-service:8000/health || exit 1
+        
+        echo "Testing Booking Service..."
+        curl -f http://booking-service:8000/health || exit 1
+        
+        echo "Testing Payment Service..."
+        curl -f http://payment-service:8000/health || exit 1
+        
+        echo "Testing Notification Service..."
+        curl -f http://notification-service:8000/health || exit 1
+        
+        echo "All integration tests passed!"
+    networks:
+      - movie-booking-network
+
+  lint:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./services:/app/services
+    command: |
+      bash -c "
+        pip install flake8 black isort mypy &&
+        for service in auth-service movie-service booking-service payment-service notification-service; do
+          echo '========================================='
+          echo \"Linting \$service\"
+          echo '========================================='
+          flake8 /app/services/\$service/app --max-line-length=120 --ignore=E501,W503 || exit 1
+        done
+        echo 'All linting passed!'
+      "
+
+  security-scan:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./services:/app/services
+    command: |
+      bash -c "
+        pip install bandit safety &&
+        for service in auth-service movie-service booking-service payment-service notification-service; do
+          echo '========================================='
+          echo \"Security scan for \$service\"
+          echo '========================================='
+          bandit -r /app/services/\$service/app -ll || exit 1
+          cd /app/services/\$service
+          safety check -r requirements.txt || true
+          cd /app
+        done
+        echo 'Security scan completed!'
+      "
+
+networks:
+  movie-booking-network:
+    external: true

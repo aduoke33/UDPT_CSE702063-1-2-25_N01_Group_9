@@ -1,0 +1,112 @@
+# =====================================================
+# POD DISRUPTION BUDGETS
+# Movie Booking System - High Availability Configuration
+# =====================================================
+---
+# Auth Service PDB - Maintain at least 1 replica during disruptions
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: auth-service-pdb
+  namespace: movie-booking
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: auth-service
+---
+# Movie Service PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: movie-service-pdb
+  namespace: movie-booking
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: movie-service
+---
+# Booking Service PDB - Critical service, maintain higher availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: booking-service-pdb
+  namespace: movie-booking
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: booking-service
+---
+# Payment Service PDB - Critical for transactions
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: payment-service-pdb
+  namespace: movie-booking
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: payment-service
+---
+# Notification Service PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: notification-service-pdb
+  namespace: movie-booking
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: notification-service
+---
+# API Gateway PDB - Entry point, maintain high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: movie-booking
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+---
+# PostgreSQL PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-pdb
+  namespace: movie-booking
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: postgres
+---
+# Redis PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+  namespace: movie-booking
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: redis
+---
+# RabbitMQ PDB
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rabbitmq-pdb
+  namespace: movie-booking
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: rabbitmq

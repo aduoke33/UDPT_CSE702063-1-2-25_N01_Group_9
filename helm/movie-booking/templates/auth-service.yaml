@@ -1,0 +1,98 @@
+{{- if .Values.authService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: auth-service
+    {{- include "movie-booking.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.authService.replicaCount }}
+  selector:
+    matchLabels:
+      app: auth-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+    spec:
+      containers:
+      - name: auth-service
+        image: "{{ .Values.authService.image.repository }}:{{ .Values.authService.image.tag }}"
+        imagePullPolicy: {{ .Values.authService.image.pullPolicy }}
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          value: {{ include "movie-booking.databaseUrl" . | quote }}
+        - name: REDIS_URL
+          value: "{{ include "movie-booking.redisUrl" . }}/0"
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "movie-booking.fullname" . }}-secrets
+              key: jwt-secret-key
+        - name: ALGORITHM
+          value: {{ .Values.authService.env.ALGORITHM | quote }}
+        - name: ACCESS_TOKEN_EXPIRE_MINUTES
+          value: {{ .Values.authService.env.ACCESS_TOKEN_EXPIRE_MINUTES | quote }}
+        resources:
+          {{- toYaml .Values.authService.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: {{ .Values.namespace }}
+spec:
+  type: {{ .Values.authService.service.type }}
+  ports:
+  - port: {{ .Values.authService.service.port }}
+    targetPort: 8000
+  selector:
+    app: auth-service
+{{- if .Values.authService.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: auth-service-hpa
+  namespace: {{ .Values.namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: auth-service
+  minReplicas: {{ .Values.authService.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.authService.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.authService.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}
