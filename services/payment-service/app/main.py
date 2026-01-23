@@ -17,7 +17,7 @@ from fastapi.security import OAuth2PasswordBearer
 from prometheus_client import Counter, Histogram
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
-from sqlalchemy import DECIMAL, Column, DateTime, ForeignKey, String
+from sqlalchemy import DECIMAL, Column, DateTime, String, select
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
@@ -89,7 +89,9 @@ class Payment(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     # Note: No ForeignKey to bookings table since each service has its own database
     booking_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)  # Store user_id for access control
+    user_id = Column(
+        UUID(as_uuid=True), nullable=False, index=True
+    )  # Store user_id for access control
     amount = Column(DECIMAL(10, 2), nullable=False)
     payment_method = Column(String(50))
     transaction_id = Column(String(255), unique=True)
@@ -241,8 +243,6 @@ async def check_idempotency(
         return None  # Will be handled by returning cached payment
 
     # Check database
-    from sqlalchemy import select
-
     result = await db.execute(
         select(Payment).filter(Payment.idempotency_key == idempotency_key)
     )
@@ -330,8 +330,6 @@ async def process_payment(
     **Idempotency**: Provide `idempotency_key` to prevent duplicate payments.
     If the same key is used twice, the original payment is returned.
     """
-    from sqlalchemy import select
-
     start_time = time.time()
 
     # Check idempotency first
@@ -431,8 +429,6 @@ async def get_payments(
     current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """Get user's payment history"""
-    from sqlalchemy import select
-
     # Get payments for this user directly (no cross-db join needed)
     result = await db.execute(
         select(Payment).where(Payment.user_id == uuid.UUID(current_user["user_id"]))
@@ -449,8 +445,6 @@ async def get_payment(
     db: AsyncSession = Depends(get_db),
 ):
     """Get specific payment details"""
-    from sqlalchemy import select
-
     result = await db.execute(
         select(Payment).where(
             Payment.id == payment_id,
