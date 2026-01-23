@@ -45,7 +45,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: app-secrets
-              key: DATABASE_URL
+              key: AUTH_DATABASE_URL
         - name: REDIS_URL
           value: "redis://:$(REDIS_PASSWORD)@redis-service:6379/0"
         - name: REDIS_PASSWORD

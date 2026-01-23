@@ -1,0 +1,519 @@
+# =====================================================
+# POSTGRESQL DATABASES - DATABASE PER SERVICE PATTERN
+# Each microservice has its own isolated database
+# =====================================================
+
+# Auth Service Database
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-auth-pvc
+  namespace: movie-booking
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: standard
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-auth
+  namespace: movie-booking
+  labels:
+    app: postgres-auth
+    tier: database
+    service: auth
+spec:
+  serviceName: postgres-auth-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-auth
+  template:
+    metadata:
+      labels:
+        app: postgres-auth
+        tier: database
+        service: auth
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          value: "auth_user"
+        - name: POSTGRES_PASSWORD
+          value: "auth_password123"
+        - name: POSTGRES_DB
+          value: "auth_db"
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-auth-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - auth_user
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - auth_user
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-auth-storage
+        persistentVolumeClaim:
+          claimName: postgres-auth-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-auth-service
+  namespace: movie-booking
+  labels:
+    app: postgres-auth
+    service: auth
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres-auth
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres
+
+# Movie Service Database
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-movie-pvc
+  namespace: movie-booking
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-movie
+  namespace: movie-booking
+  labels:
+    app: postgres-movie
+    tier: database
+    service: movie
+spec:
+  serviceName: postgres-movie-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-movie
+  template:
+    metadata:
+      labels:
+        app: postgres-movie
+        tier: database
+        service: movie
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          value: "movie_user"
+        - name: POSTGRES_PASSWORD
+          value: "movie_password123"
+        - name: POSTGRES_DB
+          value: "movies_db"
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-movie-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - movie_user
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - movie_user
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-movie-storage
+        persistentVolumeClaim:
+          claimName: postgres-movie-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-movie-service
+  namespace: movie-booking
+  labels:
+    app: postgres-movie
+    service: movie
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres-movie
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres
+
+# Booking Service Database
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-booking-pvc
+  namespace: movie-booking
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-booking
+  namespace: movie-booking
+  labels:
+    app: postgres-booking
+    tier: database
+    service: booking
+spec:
+  serviceName: postgres-booking-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-booking
+  template:
+    metadata:
+      labels:
+        app: postgres-booking
+        tier: database
+        service: booking
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          value: "booking_user"
+        - name: POSTGRES_PASSWORD
+          value: "booking_password123"
+        - name: POSTGRES_DB
+          value: "bookings_db"
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-booking-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - booking_user
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - booking_user
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-booking-storage
+        persistentVolumeClaim:
+          claimName: postgres-booking-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-booking-service
+  namespace: movie-booking
+  labels:
+    app: postgres-booking
+    service: booking
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres-booking
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres
+
+# Payment Service Database
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-payment-pvc
+  namespace: movie-booking
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 3Gi
+  storageClassName: standard
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-payment
+  namespace: movie-booking
+  labels:
+    app: postgres-payment
+    tier: database
+    service: payment
+spec:
+  serviceName: postgres-payment-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-payment
+  template:
+    metadata:
+      labels:
+        app: postgres-payment
+        tier: database
+        service: payment
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          value: "payment_user"
+        - name: POSTGRES_PASSWORD
+          value: "payment_password123"
+        - name: POSTGRES_DB
+          value: "payments_db"
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-payment-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - payment_user
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - payment_user
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-payment-storage
+        persistentVolumeClaim:
+          claimName: postgres-payment-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-payment-service
+  namespace: movie-booking
+  labels:
+    app: postgres-payment
+    service: payment
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres-payment
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres
+
+# Notification Service Database
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-notification-pvc
+  namespace: movie-booking
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: standard
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-notification
+  namespace: movie-booking
+  labels:
+    app: postgres-notification
+    tier: database
+    service: notification
+spec:
+  serviceName: postgres-notification-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-notification
+  template:
+    metadata:
+      labels:
+        app: postgres-notification
+        tier: database
+        service: notification
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          value: "notification_user"
+        - name: POSTGRES_PASSWORD
+          value: "notification_password123"
+        - name: POSTGRES_DB
+          value: "notifications_db"
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-notification-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - notification_user
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - notification_user
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-notification-storage
+        persistentVolumeClaim:
+          claimName: postgres-notification-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-notification-service
+  namespace: movie-booking
+  labels:
+    app: postgres-notification
+    service: notification
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres-notification
+  ports:
+  - port: 5432
+    targetPort: 5432
+    name: postgres

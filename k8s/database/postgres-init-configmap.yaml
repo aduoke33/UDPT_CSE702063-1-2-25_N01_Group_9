@@ -1,7 +1,7 @@
--- =====================================================
--- DATABASE INITIALIZATION SCRIPT (POSTGRES CONFIGMAP)
--- Movie Booking System - For Kubernetes
--- =====================================================
+# =====================================================
+# DATABASE INITIALIZATION SCRIPT (POSTGRES CONFIGMAP)
+# Movie Booking System - For Kubernetes
+# =====================================================
 apiVersion: v1
 kind: ConfigMap
 metadata:

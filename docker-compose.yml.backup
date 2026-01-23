@@ -1,107 +1,23 @@
 version: '3.8'
 
 services:
-  # =====================================================
-  # DATABASE PER SERVICE PATTERN
-  # Each microservice has its own PostgreSQL database
-  # =====================================================
-  
-  # Auth Service Database
-  postgres-auth:
-    image: postgres:15-alpine
-    container_name: postgres_auth
-    environment:
-      POSTGRES_USER: auth_user
-      POSTGRES_PASSWORD: auth_password123
-      POSTGRES_DB: auth_db
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_auth_data:/var/lib/postgresql/data
-    networks:
-      - movie_booking_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U auth_user"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Movie Service Database
-  postgres-movie:
-    image: postgres:15-alpine
-    container_name: postgres_movie
-    environment:
-      POSTGRES_USER: movie_user
-      POSTGRES_PASSWORD: movie_password123
-      POSTGRES_DB: movies_db
-    ports:
-      - "5434:5432"
-    volumes:
-      - postgres_movie_data:/var/lib/postgresql/data
-    networks:
-      - movie_booking_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U movie_user"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Booking Service Database
-  postgres-booking:
-    image: postgres:15-alpine
-    container_name: postgres_booking
-    environment:
-      POSTGRES_USER: booking_user
-      POSTGRES_PASSWORD: booking_password123
-      POSTGRES_DB: bookings_db
-    ports:
-      - "5435:5432"
-    volumes:
-      - postgres_booking_data:/var/lib/postgresql/data
-    networks:
-      - movie_booking_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U booking_user"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Payment Service Database
-  postgres-payment:
-    image: postgres:15-alpine
-    container_name: postgres_payment
-    environment:
-      POSTGRES_USER: payment_user
-      POSTGRES_PASSWORD: payment_password123
-      POSTGRES_DB: payments_db
-    ports:
-      - "5436:5432"
-    volumes:
-      - postgres_payment_data:/var/lib/postgresql/data
-    networks:
-      - movie_booking_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U payment_user"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Notification Service Database
-  postgres-notification:
+  # PostgreSQL Database
+  postgres:
     image: postgres:15-alpine
     container_name: movie_booking_postgres
     environment:
-      POSTGRES_USER: notification_user
-      POSTGRES_PASSWORD: notification_password123
-      POSTGRES_DB: notifications_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: movie_booking
     ports:
-      - "5437:5432"
+      - "5432:5432"
     volumes:
-      - postgres_notification_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - movie_booking_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U notification_user"]
+      test: ["CMD-SHELL", "pg_isready -U admin"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -143,13 +59,14 @@ services:
       timeout: 10s
       retries: 5
 
+  # Auth Service (FastAPI)
   auth-service:
     build:
       context: ./services/auth-service
       dockerfile: Dockerfile
     container_name: auth_service
     environment:
-      DATABASE_URL: postgresql+asyncpg://auth_user:auth_password123@postgres-auth:5432/auth_db
+      DATABASE_URL: postgresql://admin:admin123@postgres:5432/movie_booking
       REDIS_URL: redis://:redis123@redis:6379/0
       SECRET_KEY: your-super-secret-jwt-key-change-in-production
       ALGORITHM: HS256
@@ -157,7 +74,7 @@ services:
     ports:
       - "8001:8000"
     depends_on:
-      postgres-auth:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -170,19 +87,20 @@ services:
       timeout: 10s
       retries: 3
 
+  # Movie Service (FastAPI)
   movie-service:
     build:
       context: ./services/movie-service
       dockerfile: Dockerfile
     container_name: movie_service
     environment:
-      DATABASE_URL: postgresql+asyncpg://movie_user:movie_password123@postgres-movie:5432/movies_db
+      DATABASE_URL: postgresql://admin:admin123@postgres:5432/movie_booking
       REDIS_URL: redis://:redis123@redis:6379/1
       AUTH_SERVICE_URL: http://auth-service:8000
     ports:
       - "8002:8000"
     depends_on:
-      postgres-movie:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -195,13 +113,14 @@ services:
       timeout: 10s
       retries: 3
 
+  # Booking Service (FastAPI) - Redis Locking
   booking-service:
     build:
       context: ./services/booking-service
       dockerfile: Dockerfile
     container_name: booking_service
     environment:
-      DATABASE_URL: postgresql+asyncpg://booking_user:booking_password123@postgres-booking:5432/bookings_db
+      DATABASE_URL: postgresql://admin:admin123@postgres:5432/movie_booking
       REDIS_URL: redis://:redis123@redis:6379/2
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/
       AUTH_SERVICE_URL: http://auth-service:8000
@@ -209,7 +128,7 @@ services:
     ports:
       - "8003:8000"
     depends_on:
-      postgres-booking:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -224,19 +143,20 @@ services:
       timeout: 10s
       retries: 3
 
+  # Payment Service (FastAPI)
   payment-service:
     build:
       context: ./services/payment-service
       dockerfile: Dockerfile
     container_name: payment_service
     environment:
-      DATABASE_URL: postgresql+asyncpg://payment_user:payment_password123@postgres-payment:5432/payments_db
+      DATABASE_URL: postgresql://admin:admin123@postgres:5432/movie_booking
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/
       AUTH_SERVICE_URL: http://auth-service:8000
     ports:
       - "8004:8000"
     depends_on:
-      postgres-payment:
+      postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -249,13 +169,14 @@ services:
       timeout: 10s
       retries: 3
 
+  # Notification Service (FastAPI)
   notification-service:
     build:
       context: ./services/notification-service
       dockerfile: Dockerfile
     container_name: notification_service
     environment:
-      DATABASE_URL: postgresql+asyncpg://notification_user:notification_password123@postgres-notification:5432/notifications_db
+      DATABASE_URL: postgresql://admin:admin123@postgres:5432/movie_booking
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/
       SMTP_HOST: smtp.gmail.com
       SMTP_PORT: 587
@@ -264,7 +185,7 @@ services:
     ports:
       - "8005:8000"
     depends_on:
-      postgres-notification:
+      postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
@@ -309,17 +230,17 @@ services:
       APP_URL: http://localhost:8000
       API_GATEWAY_URL: http://nginx
       DB_CONNECTION: pgsql
-      DB_HOST: postgres-auth
+      DB_HOST: postgres
       DB_PORT: 5432
-      DB_DATABASE: auth_db
-      DB_USERNAME: auth_user
-      DB_PASSWORD: auth_password123
+      DB_DATABASE: movie_booking
+      DB_USERNAME: admin
+      DB_PASSWORD: admin123
     ports:
       - "8000:8000"
     volumes:
       - ./frontend:/var/www/html
     depends_on:
-      - postgres-auth
+      - postgres
       - nginx
     networks:
       - movie_booking_network
@@ -367,11 +288,7 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_auth_data:
-  postgres_movie_data:
-  postgres_booking_data:
-  postgres_payment_data:
-  postgres_notification_data:
+  postgres_data:
   redis_data:
   rabbitmq_data:
   prometheus_data:

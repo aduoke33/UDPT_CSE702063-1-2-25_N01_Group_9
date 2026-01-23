@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.28.0/configmap-v1.json
 # =====================================================
 # ALERTMANAGER CONFIGURATION
 # Movie Booking System - Alert Rules

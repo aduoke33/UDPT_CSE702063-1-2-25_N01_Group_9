@@ -45,7 +45,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: app-secrets
-              key: DATABASE_URL
+              key: NOTIFICATION_DATABASE_URL
         - name: RABBITMQ_URL
           valueFrom:
             secretKeyRef:
