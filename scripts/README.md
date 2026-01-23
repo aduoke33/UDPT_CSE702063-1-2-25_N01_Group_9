@@ -5,12 +5,15 @@ Các scripts tiện ích để quản lý hệ thống database-per-service củ
 ## 📋 Danh sách Scripts
 
 ### 1. `db-manager.ps1` (Windows PowerShell)
+
 Script quản lý databases trên Windows.
 
 ### 2. `db-manager.sh` (Linux/Mac Bash)
+
 Script quản lý databases trên Linux/Mac.
 
 ### 3. `validate-databases.ps1` (Windows PowerShell)
+
 Script kiểm tra toàn diện hệ thống databases.
 
 ## 🚀 Cách sử dụng
@@ -75,12 +78,12 @@ chmod +x scripts/db-manager.sh
 
 Hệ thống có 5 databases độc lập:
 
-| Service | Database | Port | User |
-|---------|----------|------|------|
-| auth | auth_db | 5433 | auth_user |
-| movie | movies_db | 5434 | movie_user |
-| booking | bookings_db | 5435 | booking_user |
-| payment | payments_db | 5436 | payment_user |
+| Service      | Database         | Port | User              |
+| ------------ | ---------------- | ---- | ----------------- |
+| auth         | auth_db          | 5433 | auth_user         |
+| movie        | movies_db        | 5434 | movie_user        |
+| booking      | bookings_db      | 5435 | booking_user      |
+| payment      | payments_db      | 5436 | payment_user      |
 | notification | notifications_db | 5437 | notification_user |
 
 ## 🔍 Script Validation
@@ -129,6 +132,7 @@ Database-per-Service architecture is working correctly!
 ### Backup Strategy
 
 **Backup thủ công:**
+
 ```powershell
 # Backup trước khi deploy
 .\scripts\db-manager.ps1 backup-all
@@ -139,11 +143,12 @@ Database-per-Service architecture is working correctly!
 ```
 
 **Scheduled Backup (Windows Task Scheduler):**
+
 ```powershell
 # Tạo task backup hàng ngày lúc 2h sáng
 $action = New-ScheduledTaskAction -Execute 'PowerShell.exe' `
   -Argument '-File "D:\path\to\scripts\db-manager.ps1" backup-all'
-  
+
 $trigger = New-ScheduledTaskTrigger -Daily -At 2am
 
 Register-ScheduledTask -Action $action -Trigger $trigger `
@@ -213,6 +218,7 @@ SELECT * FROM pg_stat_activity WHERE datname='auth_db';
 ## 🔒 Security Notes
 
 ⚠️ **QUAN TRỌNG:**
+
 - Scripts chứa credentials trong code (chỉ dùng cho development)
 - Trong production, sử dụng secrets management (Kubernetes Secrets, Azure Key Vault, AWS Secrets Manager)
 - Không commit backup files (đã có trong .gitignore)
@@ -227,6 +233,7 @@ SELECT * FROM pg_stat_activity WHERE datname='auth_db';
 ## 🆘 Support
 
 Nếu gặp vấn đề:
+
 1. Chạy `validate-databases.ps1` để diagnostic
 2. Kiểm tra logs: `docker logs <container-name>`
 3. Verify database URLs trong docker-compose.yml

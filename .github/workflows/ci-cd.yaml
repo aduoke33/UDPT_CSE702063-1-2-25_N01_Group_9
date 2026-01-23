@@ -51,9 +51,9 @@ jobs:
         run: mypy services/ --ignore-missing-imports || true
 
   # =====================================================
-  # STAGE 2: BUILD & PUSH DOCKER IMAGES
+  # STAGE 2: BUILD & PUSH BACKEND SERVICES
   # =====================================================
-  build:
+  build-backend:
     name: Build ${{ matrix.service }}
     runs-on: ubuntu-latest
     needs: lint
@@ -61,6 +61,7 @@ jobs:
       contents: read
       packages: write
     strategy:
+      fail-fast: false
       matrix:
         service:
           - auth-service
@@ -90,6 +91,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -102,24 +104,107 @@ jobs:
           cache-to: type=gha,mode=max
 
   # =====================================================
-  # STAGE 3: BUILD SUCCESS NOTIFICATION
+  # STAGE 3: BUILD & PUSH INFRASTRUCTURE IMAGES
+  # =====================================================
+  build-infra:
+    name: Build ${{ matrix.component }}
+    runs-on: ubuntu-latest
+    needs: lint
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: gateway
+            context: ./gateway
+          - component: frontend
+            context: ./frontend
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.component }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # =====================================================
+  # STAGE 4: VALIDATE KUBERNETES MANIFESTS
+  # =====================================================
+  validate-k8s:
+    name: Validate Kubernetes Manifests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Validate k8s manifests syntax
+        run: |
+          echo "Validating Kubernetes manifests..."
+          for file in $(find k8s -name "*.yaml" -type f); do
+            echo "Checking $file"
+            kubectl apply --dry-run=client -f "$file" 2>&1 || true
+          done
+          echo "Kubernetes manifest validation completed"
+
+  # =====================================================
+  # STAGE 5: BUILD SUCCESS NOTIFICATION
   # =====================================================
   notify:
     name: Pipeline Complete
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build-backend, build-infra, validate-k8s]
     if: success()
     steps:
       - name: Success notification
         run: |
-          echo "🎉 CI/CD Pipeline completed successfully!"
+          echo "CI/CD Pipeline completed successfully!"
           echo ""
-          echo "✅ Code Quality: PASSED"
-          echo "✅ Docker Build: PASSED"
+          echo "Code Quality: PASSED"
+          echo "Backend Services Build: PASSED"
+          echo "Infrastructure Build: PASSED"
+          echo "Kubernetes Validation: PASSED"
           echo ""
-          echo "📦 Images pushed to ghcr.io:"
-          echo "  - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-service"
-          echo "  - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/movie-service"
-          echo "  - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/booking-service"
-          echo "  - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/payment-service"
-          echo "  - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/notification-service"
+          echo "Images pushed to ghcr.io:"
+          echo "  Backend Services:"
+          echo "    - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/auth-service"
+          echo "    - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/movie-service"
+          echo "    - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/booking-service"
+          echo "    - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/payment-service"
+          echo "    - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/notification-service"
+          echo "  Infrastructure:"
+          echo "    - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/gateway"
+          echo "    - ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/frontend"

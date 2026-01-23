@@ -1,13 +1,12 @@
 # =====================================================
-# FRONTEND PLACEHOLDER
+# API GATEWAY - NGINX
 # Movie Booking System
-# This is a placeholder until the real frontend is ready
 # =====================================================
 
 FROM nginx:1.25-alpine
 
 LABEL maintainer="Movie Booking Team"
-LABEL description="Frontend Placeholder for Movie Booking System"
+LABEL description="API Gateway for Movie Booking System"
 
 # Install curl for healthcheck
 RUN apk add --no-cache curl
@@ -15,9 +14,11 @@ RUN apk add --no-cache curl
 # Remove default nginx config
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy placeholder content
-COPY placeholder/ /usr/share/nginx/html/
-COPY nginx-frontend.conf /etc/nginx/conf.d/default.conf
+# Copy custom nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Create directory for logs
+RUN mkdir -p /var/log/nginx
 
 # Expose port 80
 EXPOSE 80
