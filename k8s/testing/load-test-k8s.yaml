@@ -1,0 +1,366 @@
+# =====================================================
+# LOAD TESTING DEPLOYMENT FOR KUBERNETES
+# Run load tests inside the cluster
+# =====================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: load-testing
+  labels:
+    app.kubernetes.io/name: load-testing
+---
+# =====================================================
+# K6 LOAD TEST JOB
+# =====================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-load-test
+  namespace: load-testing
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600  # Clean up after 1 hour
+  template:
+    metadata:
+      labels:
+        app: k6-load-test
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: grafana/k6:0.47.0
+          command:
+            - k6
+            - run
+            - --out
+            - influxdb=http://influxdb.monitoring:8086/k6
+            - /scripts/load-test.js
+          env:
+            - name: BASE_URL
+              value: "http://api-gateway.movie-booking.svc.cluster.local"
+            - name: K6_PROMETHEUS_RW_SERVER_URL
+              value: "http://prometheus.movie-booking:9090/api/v1/write"
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+      volumes:
+        - name: scripts
+          configMap:
+            name: k6-scripts
+---
+# =====================================================
+# K6 SCRIPTS CONFIGMAP
+# =====================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-scripts
+  namespace: load-testing
+data:
+  load-test.js: |
+    import http from 'k6/http';
+    import { check, sleep } from 'k6';
+    import { Rate, Trend } from 'k6/metrics';
+
+    const BASE_URL = __ENV.BASE_URL || 'http://api-gateway.movie-booking';
+
+    export const options = {
+      stages: [
+        { duration: '1m', target: 10 },
+        { duration: '3m', target: 50 },
+        { duration: '3m', target: 100 },
+        { duration: '2m', target: 50 },
+        { duration: '1m', target: 0 },
+      ],
+      thresholds: {
+        http_req_duration: ['p(95)<500'],
+        http_req_failed: ['rate<0.05'],
+      },
+    };
+
+    const bookingSuccess = new Rate('booking_success');
+    const bookingDuration = new Trend('booking_duration');
+
+    export default function () {
+      // Get movies
+      let res = http.get(`${BASE_URL}/api/v1/movies/`);
+      check(res, { 'movies status 200': (r) => r.status === 200 });
+      
+      if (res.status === 200) {
+        const movies = JSON.parse(res.body);
+        if (movies.length > 0) {
+          const movie = movies[Math.floor(Math.random() * movies.length)];
+          
+          // Get movie details
+          res = http.get(`${BASE_URL}/api/v1/movies/${movie.id}`);
+          check(res, { 'movie detail status 200': (r) => r.status === 200 });
+        }
+      }
+      
+      sleep(1);
+    }
+---
+# =====================================================
+# LOCUST DEPLOYMENT (Distributed Load Testing)
+# =====================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locust-master
+  namespace: load-testing
+  labels:
+    app: locust
+    role: master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: locust
+      role: master
+  template:
+    metadata:
+      labels:
+        app: locust
+        role: master
+    spec:
+      containers:
+        - name: locust
+          image: locustio/locust:2.20.0
+          args:
+            - --master
+            - --host=http://api-gateway.movie-booking.svc.cluster.local
+            - --users=100
+            - --spawn-rate=10
+          ports:
+            - containerPort: 8089
+              name: web
+            - containerPort: 5557
+              name: master
+          env:
+            - name: LOCUST_LOCUSTFILE
+              value: /scripts/locustfile.py
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: scripts
+          configMap:
+            name: locust-scripts
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: locust-worker
+  namespace: load-testing
+  labels:
+    app: locust
+    role: worker
+spec:
+  replicas: 4  # Number of workers
+  selector:
+    matchLabels:
+      app: locust
+      role: worker
+  template:
+    metadata:
+      labels:
+        app: locust
+        role: worker
+    spec:
+      containers:
+        - name: locust
+          image: locustio/locust:2.20.0
+          args:
+            - --worker
+            - --master-host=locust-master
+          env:
+            - name: LOCUST_LOCUSTFILE
+              value: /scripts/locustfile.py
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+      volumes:
+        - name: scripts
+          configMap:
+            name: locust-scripts
+---
+# =====================================================
+# LOCUST SERVICES
+# =====================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: locust-master
+  namespace: load-testing
+spec:
+  selector:
+    app: locust
+    role: master
+  ports:
+    - name: web
+      port: 8089
+      targetPort: 8089
+    - name: master
+      port: 5557
+      targetPort: 5557
+  type: ClusterIP
+---
+# =====================================================
+# LOCUST SCRIPTS CONFIGMAP
+# =====================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: locust-scripts
+  namespace: load-testing
+data:
+  locustfile.py: |
+    from locust import HttpUser, task, between
+    import random
+    import json
+
+    class MovieBookingUser(HttpUser):
+        wait_time = between(1, 5)
+        _token = None
+
+        def on_start(self):
+            # Register and login
+            email = f"user_{random.randint(10000, 99999)}@test.com"
+            data = {"email": email, "password": "Test@123", "name": "Test User"}
+            
+            res = self.client.post("/api/v1/auth/register", json=data)
+            if res.status_code in [200, 201]:
+                self._token = res.json().get("access_token")
+        
+        @property
+        def headers(self):
+            if self._token:
+                return {"Authorization": f"Bearer {self._token}"}
+            return {}
+
+        @task(10)
+        def browse_movies(self):
+            self.client.get("/api/v1/movies/", headers=self.headers)
+
+        @task(5)
+        def get_movie_detail(self):
+            res = self.client.get("/api/v1/movies/", headers=self.headers)
+            if res.status_code == 200:
+                movies = res.json()
+                if movies:
+                    movie_id = random.choice(movies).get("id", 1)
+                    self.client.get(f"/api/v1/movies/{movie_id}", headers=self.headers)
+
+        @task(3)
+        def create_booking(self):
+            res = self.client.get("/api/v1/movies/", headers=self.headers)
+            if res.status_code == 200:
+                movies = res.json()
+                if movies:
+                    movie_id = random.choice(movies).get("id", 1)
+                    booking = {
+                        "movie_id": movie_id,
+                        "showtime_id": 1,
+                        "seats": [f"{random.choice('ABCDEF')}{random.randint(1,10)}"]
+                    }
+                    self.client.post("/api/v1/bookings/", json=booking, headers=self.headers)
+
+        @task(1)
+        def process_payment(self):
+            res = self.client.get("/api/v1/bookings/", headers=self.headers)
+            if res.status_code == 200:
+                bookings = res.json()
+                if bookings:
+                    booking = random.choice(bookings)
+                    payment = {
+                        "booking_id": booking.get("id"),
+                        "amount": booking.get("total_amount", 100),
+                        "payment_method": "credit_card"
+                    }
+                    self.client.post("/api/v1/payments/", json=payment, headers=self.headers)
+---
+# =====================================================
+# HORIZONTAL POD AUTOSCALER FOR WORKERS
+# =====================================================
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: locust-worker-hpa
+  namespace: load-testing
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: locust-worker
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+# =====================================================
+# INGRESS FOR LOCUST WEB UI
+# =====================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: locust-ingress
+  namespace: load-testing
+  annotations:
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: locust-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: "Load Testing - Authentication Required"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: locust.movie-booking.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: locust-master
+                port:
+                  number: 8089
+---
+# =====================================================
+# BASIC AUTH SECRET
+# =====================================================
+apiVersion: v1
+kind: Secret
+metadata:
+  name: locust-basic-auth
+  namespace: load-testing
+type: Opaque
+data:
+  # admin:loadtest123
+  auth: YWRtaW46JGFwcjEkWnY4WUJZdHckTHVxN1pOUG1vOUd5bWRWdEtYZC4uMQo=

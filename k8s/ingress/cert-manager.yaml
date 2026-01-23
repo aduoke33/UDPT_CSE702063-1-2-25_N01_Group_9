@@ -1,0 +1,234 @@
+# =====================================================
+# CERT-MANAGER CONFIGURATION
+# Automatic TLS certificate management
+# =====================================================
+
+# Namespace for cert-manager
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+  labels:
+    app.kubernetes.io/name: cert-manager
+---
+# =====================================================
+# CLUSTER ISSUER - LET'S ENCRYPT STAGING
+# Use for testing (no rate limits)
+# =====================================================
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    # The ACME server URL
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    # Email address used for ACME registration
+    email: admin@movie-booking.example.com
+    # Name of a secret used to store the ACME account private key
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    # Enable HTTP01 challenge
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+---
+# =====================================================
+# CLUSTER ISSUER - LET'S ENCRYPT PRODUCTION
+# Use for real certificates
+# =====================================================
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    # The ACME server URL
+    server: https://acme-v02.api.letsencrypt.org/directory
+    # Email address used for ACME registration
+    email: admin@movie-booking.example.com
+    # Name of a secret used to store the ACME account private key
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    # Enable HTTP01 challenge
+    solvers:
+      - http01:
+          ingress:
+            class: nginx
+      # Enable DNS01 challenge for wildcard certs (optional)
+      # - dns01:
+      #     cloudflare:
+      #       email: admin@movie-booking.example.com
+      #       apiTokenSecretRef:
+      #         name: cloudflare-api-token-secret
+      #         key: api-token
+---
+# =====================================================
+# SELF-SIGNED ISSUER (for internal/dev)
+# =====================================================
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+# =====================================================
+# CA ISSUER (for internal services)
+# =====================================================
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: movie-booking-ca
+  namespace: movie-booking
+spec:
+  isCA: true
+  commonName: movie-booking-ca
+  secretName: movie-booking-ca-secret
+  duration: 87600h # 10 years
+  renewBefore: 720h # 30 days
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned-issuer
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: movie-booking-ca-issuer
+  namespace: movie-booking
+spec:
+  ca:
+    secretName: movie-booking-ca-secret
+---
+# =====================================================
+# CERTIFICATE FOR MAIN DOMAIN
+# =====================================================
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: movie-booking-tls
+  namespace: movie-booking
+spec:
+  secretName: movie-booking-tls-secret
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  subject:
+    organizations:
+      - Movie Booking System
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - movie-booking.example.com
+    - api.movie-booking.example.com
+    - "*.movie-booking.example.com"
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+---
+# =====================================================
+# CERTIFICATE FOR INTERNAL SERVICES (mTLS)
+# =====================================================
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: auth-service-tls
+  namespace: movie-booking
+spec:
+  secretName: auth-service-tls-secret
+  duration: 720h # 30 days
+  renewBefore: 168h # 7 days
+  commonName: auth-service
+  dnsNames:
+    - auth-service
+    - auth-service.movie-booking
+    - auth-service.movie-booking.svc
+    - auth-service.movie-booking.svc.cluster.local
+  issuerRef:
+    name: movie-booking-ca-issuer
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: movie-service-tls
+  namespace: movie-booking
+spec:
+  secretName: movie-service-tls-secret
+  duration: 720h
+  renewBefore: 168h
+  commonName: movie-service
+  dnsNames:
+    - movie-service
+    - movie-service.movie-booking
+    - movie-service.movie-booking.svc
+    - movie-service.movie-booking.svc.cluster.local
+  issuerRef:
+    name: movie-booking-ca-issuer
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: booking-service-tls
+  namespace: movie-booking
+spec:
+  secretName: booking-service-tls-secret
+  duration: 720h
+  renewBefore: 168h
+  commonName: booking-service
+  dnsNames:
+    - booking-service
+    - booking-service.movie-booking
+    - booking-service.movie-booking.svc
+    - booking-service.movie-booking.svc.cluster.local
+  issuerRef:
+    name: movie-booking-ca-issuer
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: payment-service-tls
+  namespace: movie-booking
+spec:
+  secretName: payment-service-tls-secret
+  duration: 720h
+  renewBefore: 168h
+  commonName: payment-service
+  dnsNames:
+    - payment-service
+    - payment-service.movie-booking
+    - payment-service.movie-booking.svc
+    - payment-service.movie-booking.svc.cluster.local
+  issuerRef:
+    name: movie-booking-ca-issuer
+    kind: Issuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: notification-service-tls
+  namespace: movie-booking
+spec:
+  secretName: notification-service-tls-secret
+  duration: 720h
+  renewBefore: 168h
+  commonName: notification-service
+  dnsNames:
+    - notification-service
+    - notification-service.movie-booking
+    - notification-service.movie-booking.svc
+    - notification-service.movie-booking.svc.cluster.local
+  issuerRef:
+    name: movie-booking-ca-issuer
+    kind: Issuer
