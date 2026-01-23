@@ -219,10 +219,11 @@ services:
       - movie_booking_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   payment-service:
     build:
@@ -233,6 +234,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://payment_user:payment_password123@postgres-payment:5432/payments_db
       RABBITMQ_URL: amqp://admin:admin123@rabbitmq:5672/
       AUTH_SERVICE_URL: http://auth-service:8000
+      BOOKING_SERVICE_URL: http://booking-service:8000
     ports:
       - "8004:8000"
     depends_on:
@@ -240,14 +242,17 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      booking-service:
+        condition: service_healthy
     networks:
       - movie_booking_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   notification-service:
     build:

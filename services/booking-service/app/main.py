@@ -177,6 +177,7 @@ class BookingCreate(BaseModel):
 
 class BookingResponse(BaseModel):
     id: uuid.UUID
+    user_id: uuid.UUID
     booking_code: str
     showtime_id: uuid.UUID
     total_seats: int
@@ -187,6 +188,11 @@ class BookingResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PaymentStatusUpdate(BaseModel):
+    payment_status: str
+    status: Optional[str] = None
 
 
 app = FastAPI(
@@ -622,6 +628,64 @@ async def cancel_booking(
     logger.info(f"Booking cancelled: booking={booking_id}")
 
     return {"message": "Booking cancelled successfully"}
+
+
+# =====================================================
+# INTERNAL API - FOR SERVICE-TO-SERVICE COMMUNICATION
+# =====================================================
+@app.get("/internal/bookings/{booking_id}", response_model=BookingResponse)
+async def get_booking_internal(
+    booking_id: uuid.UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Internal API for other services to get booking details.
+    Used by payment-service to verify bookings.
+    """
+    from sqlalchemy import select
+
+    result = await db.execute(select(Booking).filter(Booking.id == booking_id))
+    booking = result.scalar_one_or_none()
+
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    return booking
+
+
+@app.patch("/internal/bookings/{booking_id}/payment-status")
+async def update_booking_payment_status(
+    booking_id: uuid.UUID,
+    update_data: PaymentStatusUpdate,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Internal API for payment service to update booking payment status.
+    """
+    from sqlalchemy import select, update
+
+    result = await db.execute(select(Booking).filter(Booking.id == booking_id))
+    booking = result.scalar_one_or_none()
+
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    update_values = {"payment_status": update_data.payment_status}
+    if update_data.status:
+        update_values["status"] = update_data.status
+
+    await db.execute(
+        update(Booking).where(Booking.id == booking_id).values(**update_values)
+    )
+    await db.commit()
+
+    logger.info(
+        f"Booking payment status updated: booking={booking_id}, status={update_data.payment_status}"
+    )
+
+    return {"message": "Booking payment status updated"}
 
 
 if __name__ == "__main__":

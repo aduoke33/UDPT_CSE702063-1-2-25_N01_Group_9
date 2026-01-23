@@ -34,9 +34,10 @@ class CorrelationIdFilter(logging.Filter):
         return True
 
 
+# Basic logging config (without correlation_id to avoid external lib crashes)
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - [%(correlation_id)s] - %(message)s",
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 logger.addFilter(CorrelationIdFilter())
@@ -64,6 +65,7 @@ DATABASE_URL = os.getenv(
 )
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://admin:admin123@rabbitmq:5672/")
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000")
+BOOKING_SERVICE_URL = os.getenv("BOOKING_SERVICE_URL", "http://booking-service:8000")
 REDIS_URL = os.getenv("REDIS_URL", "redis://:redis123@redis:6379/3")
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "10.0"))
 
@@ -85,7 +87,9 @@ class Payment(Base):
     __tablename__ = "payments"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    booking_id = Column(UUID(as_uuid=True), ForeignKey("bookings.id"), nullable=False)
+    # Note: No ForeignKey to bookings table since each service has its own database
+    booking_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)  # Store user_id for access control
     amount = Column(DECIMAL(10, 2), nullable=False)
     payment_method = Column(String(50))
     transaction_id = Column(String(255), unique=True)
@@ -326,7 +330,7 @@ async def process_payment(
     **Idempotency**: Provide `idempotency_key` to prevent duplicate payments.
     If the same key is used twice, the original payment is returned.
     """
-    from sqlalchemy import select, update
+    from sqlalchemy import select
 
     start_time = time.time()
 
@@ -339,32 +343,34 @@ async def process_payment(
             )
             return existing_payment
 
-    # Import Booking model (minimal version for query)
-    from sqlalchemy import MetaData, Table
+    # Verify booking exists via booking-service API (database-per-service pattern)
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+        try:
+            response = await client.get(
+                f"{BOOKING_SERVICE_URL}/internal/bookings/{payment_data.booking_id}",
+            )
+            if response.status_code == 404:
+                raise HTTPException(status_code=404, detail="Booking not found")
+            if response.status_code != 200:
+                raise HTTPException(status_code=502, detail="Booking service error")
+            booking = response.json()
+        except httpx.RequestError as e:
+            logger.error(f"Booking service request error: {e}")
+            raise HTTPException(status_code=503, detail="Booking service unavailable")
 
-    metadata = MetaData()
-    bookings_table = Table("bookings", metadata, autoload_with=engine.sync_engine)
+    # Verify user owns this booking
+    if booking.get("user_id") != str(current_user["user_id"]):
+        raise HTTPException(status_code=403, detail="Booking does not belong to user")
 
-    # Verify booking exists and belongs to user
-    result = await db.execute(
-        select(bookings_table).where(
-            bookings_table.c.id == payment_data.booking_id,
-            bookings_table.c.user_id == uuid.UUID(current_user["user_id"]),
-        )
-    )
-    booking = result.first()
-
-    if not booking:
-        raise HTTPException(status_code=404, detail="Booking not found")
-
-    if booking.payment_status == "paid":
+    if booking.get("payment_status") == "paid":
         raise HTTPException(status_code=400, detail="Booking already paid")
 
-    if booking.status == "cancelled":
+    if booking.get("status") == "cancelled":
         raise HTTPException(status_code=400, detail="Cannot pay for cancelled booking")
 
     # Verify amount matches
-    if booking.total_price != payment_data.amount:
+    booking_price = Decimal(str(booking.get("total_price", 0)))
+    if booking_price != payment_data.amount:
         raise HTTPException(status_code=400, detail="Payment amount mismatch")
 
     # Simulate payment processing
@@ -373,6 +379,7 @@ async def process_payment(
     # Create payment record
     new_payment = Payment(
         booking_id=payment_data.booking_id,
+        user_id=uuid.UUID(current_user["user_id"]),
         amount=payment_data.amount,
         payment_method=payment_data.payment_method,
         transaction_id=transaction_id,
@@ -382,16 +389,19 @@ async def process_payment(
     )
 
     db.add(new_payment)
-
-    # Update booking status
-    await db.execute(
-        update(bookings_table)
-        .where(bookings_table.c.id == payment_data.booking_id)
-        .values(payment_status="paid", status="confirmed")
-    )
-
     await db.commit()
     await db.refresh(new_payment)
+
+    # Update booking status via booking-service API
+    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+        try:
+            await client.patch(
+                f"{BOOKING_SERVICE_URL}/internal/bookings/{payment_data.booking_id}/payment-status",
+                json={"payment_status": "paid", "status": "confirmed"},
+            )
+        except httpx.RequestError as e:
+            logger.warning(f"Failed to update booking status: {e}")
+            # Payment is recorded, booking update can be retried or reconciled later
 
     # Store idempotency key
     if payment_data.idempotency_key:
@@ -421,20 +431,11 @@ async def get_payments(
     current_user: dict = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """Get user's payment history"""
-    from sqlalchemy import MetaData, Table, join, select  # noqa: F401
+    from sqlalchemy import select
 
-    metadata = MetaData()
-    bookings_table = Table("bookings", metadata, autoload_with=engine.sync_engine)
-
-    # Get payments for user's bookings
+    # Get payments for this user directly (no cross-db join needed)
     result = await db.execute(
-        select(Payment)
-        .select_from(
-            Payment.__table__.join(
-                bookings_table, Payment.booking_id == bookings_table.c.id
-            )
-        )
-        .where(bookings_table.c.user_id == uuid.UUID(current_user["user_id"]))
+        select(Payment).where(Payment.user_id == uuid.UUID(current_user["user_id"]))
     )
 
     payments = result.scalars().all()
@@ -448,21 +449,12 @@ async def get_payment(
     db: AsyncSession = Depends(get_db),
 ):
     """Get specific payment details"""
-    from sqlalchemy import MetaData, Table, join, select  # noqa: F401
-
-    metadata = MetaData()
-    bookings_table = Table("bookings", metadata, autoload_with=engine.sync_engine)
+    from sqlalchemy import select
 
     result = await db.execute(
-        select(Payment)
-        .select_from(
-            Payment.__table__.join(
-                bookings_table, Payment.booking_id == bookings_table.c.id
-            )
-        )
-        .where(
+        select(Payment).where(
             Payment.id == payment_id,
-            bookings_table.c.user_id == uuid.UUID(current_user["user_id"]),
+            Payment.user_id == uuid.UUID(current_user["user_id"]),
         )
     )
 

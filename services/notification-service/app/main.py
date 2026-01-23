@@ -30,9 +30,10 @@ class CorrelationIdFilter(logging.Filter):
         return True
 
 
+# Basic logging config (without correlation_id to avoid external lib crashes)
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - [%(correlation_id)s] - %(message)s",
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 logger.addFilter(CorrelationIdFilter())
@@ -73,7 +74,8 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    # Note: No ForeignKey to users table since each service has its own database
+    user_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     type = Column(String(50), nullable=False)
     subject = Column(String(255))
     message = Column(Text, nullable=False)
