@@ -49,11 +49,11 @@ jobs:
 
       - name: Run isort (Import Sorter)
         run: |
-          isort --check-only services/
+          isort --check-only services/ --profile black
 
       - name: Run Flake8 (Linter)
         run: |
-          flake8 services/ --max-line-length=120 --ignore=E501,W503
+          flake8 services/ --max-line-length=120 --extend-ignore=E501,W503
 
       - name: Run MyPy (Type Checker)
         run: |
