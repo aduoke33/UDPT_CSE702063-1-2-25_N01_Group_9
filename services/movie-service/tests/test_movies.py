@@ -2,12 +2,13 @@
 # MOVIE SERVICE UNIT TESTS
 # Movie Booking System - Movie & Showtime Tests
 # =====================================================
-import pytest
-from httpx import AsyncClient
+import os
+import sys
 from datetime import date, time
 from decimal import Decimal
-import sys
-import os
+
+import pytest
+from httpx import AsyncClient
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -16,7 +17,7 @@ from app.main import app
 
 class TestHealthEndpoint:
     """Test health check endpoint."""
-    
+
     @pytest.mark.asyncio
     async def test_health_endpoint(self):
         """Test health endpoint returns OK."""
@@ -29,7 +30,7 @@ class TestHealthEndpoint:
 
 class TestMoviesEndpoint:
     """Test movies endpoints."""
-    
+
     @pytest.mark.asyncio
     async def test_get_movies_list(self):
         """Test getting movies list."""
@@ -37,7 +38,7 @@ class TestMoviesEndpoint:
             response = await client.get("/movies")
             # May return 500 if DB not connected, or 200 with empty list
             assert response.status_code in [200, 500]
-    
+
     @pytest.mark.asyncio
     async def test_get_movie_not_found(self):
         """Test getting non-existent movie."""
@@ -48,7 +49,7 @@ class TestMoviesEndpoint:
 
 class TestShowtimesEndpoint:
     """Test showtimes endpoints."""
-    
+
     @pytest.mark.asyncio
     async def test_get_showtimes_list(self):
         """Test getting showtimes list."""
@@ -59,7 +60,7 @@ class TestShowtimesEndpoint:
 
 class TestTheatersEndpoint:
     """Test theaters endpoints."""
-    
+
     @pytest.mark.asyncio
     async def test_get_theaters_list(self):
         """Test getting theaters list."""

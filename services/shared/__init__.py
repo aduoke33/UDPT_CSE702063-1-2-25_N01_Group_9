@@ -3,31 +3,25 @@ Shared module for Movie Booking Microservices
 """
 
 from .config import (
-    BaseConfig,
     AuthServiceConfig,
-    MovieServiceConfig,
+    BaseConfig,
     BookingServiceConfig,
-    PaymentServiceConfig,
+    MovieServiceConfig,
     NotificationServiceConfig,
-    get_config
+    PaymentServiceConfig,
+    get_config,
 )
-from .database import DatabaseManager, Base
+from .database import Base, DatabaseManager
 from .distributed_patterns import (
     CircuitBreaker,
     CircuitBreakerOpenError,
     DistributedLock,
-    LockAcquisitionError,
-    Retry,
     IdempotencyChecker,
-    RateLimiter
+    LockAcquisitionError,
+    RateLimiter,
+    Retry,
 )
-from .messaging import (
-    MessageBroker,
-    Event,
-    EventTypes,
-    Exchanges,
-    Queues
-)
+from .messaging import Event, EventTypes, Exchanges, MessageBroker, Queues
 
 __all__ = [
     # Config
@@ -54,5 +48,5 @@ __all__ = [
     "Event",
     "EventTypes",
     "Exchanges",
-    "Queues"
+    "Queues",
 ]
