@@ -11,8 +11,9 @@ namespace: movie-booking
 resources:
   - ../../base
 
-commonLabels:
-  environment: production
+labels:
+  - pairs:
+      environment: production
 
 replicas:
   - name: auth-service
@@ -38,6 +39,10 @@ images:
   - name: movie-booking/payment-service
     newTag: v1.0.0
   - name: movie-booking/notification-service
+    newTag: v1.0.0
+  - name: movie-booking/frontend
+    newTag: v1.0.0
+  - name: movie-booking/gateway
     newTag: v1.0.0
 
 patches:

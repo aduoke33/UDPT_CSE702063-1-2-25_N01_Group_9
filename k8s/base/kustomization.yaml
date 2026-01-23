@@ -18,7 +18,7 @@ resources:
   - ../secrets/app-secrets.yaml
   
   # Database layer
-  - ../database/postgres.yaml
+  - ../database/postgres-databases.yaml
   - ../database/redis.yaml
   - ../database/rabbitmq.yaml
   - ../database/postgres-init-configmap.yaml
@@ -45,9 +45,10 @@ resources:
   - ../monitoring/alertmanager.yaml
   - ../monitoring/tracing.yaml
 
-commonLabels:
-  app.kubernetes.io/name: movie-booking
-  app.kubernetes.io/managed-by: kustomize
+labels:
+  - pairs:
+      app.kubernetes.io/name: movie-booking
+      app.kubernetes.io/managed-by: kustomize
 
 images:
   - name: movie-booking/auth-service
@@ -59,4 +60,8 @@ images:
   - name: movie-booking/payment-service
     newTag: latest
   - name: movie-booking/notification-service
+    newTag: latest
+  - name: movie-booking/frontend
+    newTag: latest
+  - name: movie-booking/gateway
     newTag: latest

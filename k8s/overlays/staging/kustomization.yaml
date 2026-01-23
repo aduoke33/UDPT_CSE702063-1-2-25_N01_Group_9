@@ -13,8 +13,9 @@ resources:
 
 namePrefix: staging-
 
-commonLabels:
-  environment: staging
+labels:
+  - pairs:
+      environment: staging
 
 replicas:
   - name: auth-service
@@ -38,6 +39,10 @@ images:
   - name: movie-booking/payment-service
     newTag: staging
   - name: movie-booking/notification-service
+    newTag: staging
+  - name: movie-booking/frontend
+    newTag: staging
+  - name: movie-booking/gateway
     newTag: staging
 
 patches:
