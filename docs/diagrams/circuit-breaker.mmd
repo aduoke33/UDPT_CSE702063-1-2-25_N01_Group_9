@@ -1,0 +1,29 @@
+stateDiagram-v2
+    [*] --> CLOSED: Initial
+    
+    CLOSED --> CLOSED: Success
+    CLOSED --> OPEN: Failure >= Threshold (5)
+    
+    note right of CLOSED
+        Normal operation
+        All requests pass through
+        Failure counter tracked
+    end note
+    
+    OPEN --> OPEN: Request (Fast Fail)
+    OPEN --> HALF_OPEN: Timeout (30s)
+    
+    note right of OPEN
+        All requests fail immediately
+        No actual service calls
+        Timer starts on entry
+    end note
+    
+    HALF_OPEN --> CLOSED: Success (3 consecutive)
+    HALF_OPEN --> OPEN: Any Failure
+    
+    note right of HALF_OPEN
+        Limited test requests (3)
+        Testing service recovery
+        Any failure reopens circuit
+    end note

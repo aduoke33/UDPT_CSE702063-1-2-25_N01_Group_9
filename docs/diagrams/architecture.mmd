@@ -1,0 +1,109 @@
+graph TB
+    subgraph "External Layer"
+        Client[Client/Browser]
+        Mobile[Mobile App]
+    end
+
+    subgraph "Entry Point"
+        LB[Load Balancer]
+        Ingress[Kubernetes Ingress]
+    end
+
+    subgraph "API Gateway Layer"
+        GW[NGINX API Gateway]
+        RateLimit[Rate Limiting]
+        CORS[CORS Handler]
+    end
+
+    subgraph "Service Mesh"
+        Istio[Istio Sidecar]
+    end
+
+    subgraph "Microservices Layer"
+        direction TB
+        AS[Auth Service<br/>FastAPI]
+        MS[Movie Service<br/>FastAPI]
+        BS[Booking Service<br/>FastAPI]
+        PS[Payment Service<br/>FastAPI]
+        NS[Notification Service<br/>FastAPI]
+    end
+
+    subgraph "Data Layer"
+        direction TB
+        PG[(PostgreSQL<br/>Primary DB)]
+        Redis[(Redis<br/>Cache & Locks)]
+        RMQ[(RabbitMQ<br/>Message Queue)]
+    end
+
+    subgraph "Monitoring Layer"
+        Prom[Prometheus]
+        Graf[Grafana]
+        Jaeger[Jaeger Tracing]
+        Alert[Alertmanager]
+    end
+
+    subgraph "CI/CD Pipeline"
+        GH[GitHub Actions]
+        DockerHub[Container Registry]
+        ArgoCD[ArgoCD/Helm]
+    end
+
+    %% Connections
+    Client --> LB
+    Mobile --> LB
+    LB --> Ingress
+    Ingress --> GW
+    GW --> RateLimit
+    GW --> CORS
+    
+    GW --> Istio
+    Istio --> AS
+    Istio --> MS
+    Istio --> BS
+    Istio --> PS
+    Istio --> NS
+
+    AS --> PG
+    AS --> Redis
+    MS --> PG
+    MS --> Redis
+    BS --> PG
+    BS --> Redis
+    BS --> AS
+    BS --> MS
+    BS --> PS
+    PS --> PG
+    PS --> Redis
+    PS --> RMQ
+    NS --> PG
+    NS --> RMQ
+
+    AS --> Prom
+    MS --> Prom
+    BS --> Prom
+    PS --> Prom
+    NS --> Prom
+    Prom --> Graf
+    Prom --> Alert
+
+    AS --> Jaeger
+    MS --> Jaeger
+    BS --> Jaeger
+    PS --> Jaeger
+    NS --> Jaeger
+
+    GH --> DockerHub
+    DockerHub --> ArgoCD
+    ArgoCD --> Ingress
+
+    classDef service fill:#3498db,stroke:#2980b9,color:white
+    classDef database fill:#27ae60,stroke:#1e8449,color:white
+    classDef gateway fill:#e74c3c,stroke:#c0392b,color:white
+    classDef monitoring fill:#9b59b6,stroke:#8e44ad,color:white
+    classDef external fill:#95a5a6,stroke:#7f8c8d,color:white
+
+    class AS,MS,BS,PS,NS service
+    class PG,Redis,RMQ database
+    class GW,LB,Ingress gateway
+    class Prom,Graf,Jaeger,Alert monitoring
+    class Client,Mobile external

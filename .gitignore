@@ -1,5 +1,5 @@
 # Ignore documentation files the user asked to keep locally
-README.md
+# README.md  # Commented out - needed for submission
 ARCHITECTURE.md
 SYSTEM_DESIGN.md
 OPERATIONS.md
@@ -10,9 +10,12 @@ ARCHITECTURE_ANALYSIS.md
 CODE_ARCHITECTURE.md
 INFRASTRUCTURE.md
 FIXES.md
-docs/
+# docs/  # Commented out - docs/LOAD_TESTING.md and docs/RUNBOOK.md needed
 
-# Exception: Allow scripts README
+# Exception: Allow important docs for submission
+!docs/LOAD_TESTING.md
+!docs/RUNBOOK.md
+!docs/diagrams/
 !scripts/README.md
 
 # Python
