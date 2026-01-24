@@ -15,7 +15,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "================================================" -ForegroundColor Blue
-Write-Host "  🎬 Movie Booking System - Local Runner" -ForegroundColor Blue
+Write-Host "  Movie Booking System - Local Runner" -ForegroundColor Blue
 Write-Host "================================================" -ForegroundColor Blue
 Write-Host ""
 
@@ -27,9 +27,9 @@ Set-Location $ProjectRoot
 # Check Docker
 try {
     docker info 2>&1 | Out-Null
-    Write-Host "✓ Docker is running" -ForegroundColor Green
+    Write-Host "OK Docker is running" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Docker is not running. Please start Docker Desktop." -ForegroundColor Red
+    Write-Host "ERROR Docker is not running. Please start Docker Desktop." -ForegroundColor Red
     exit 1
 }
 
@@ -42,13 +42,13 @@ try {
     # fallback to docker-compose
 }
 
-Write-Host "✓ Using: $ComposeCmd" -ForegroundColor Green
+Write-Host "OK Using: $ComposeCmd" -ForegroundColor Green
 Write-Host ""
 
 function Show-ServiceUrls {
     Write-Host ""
     Write-Host "================================================" -ForegroundColor Green
-    Write-Host "  ✅ System is running!" -ForegroundColor Green
+    Write-Host "  System is running!" -ForegroundColor Green
     Write-Host "================================================" -ForegroundColor Green
     Write-Host ""
     Write-Host "  API Gateway:      " -NoNewline -ForegroundColor Blue
@@ -72,13 +72,13 @@ function Show-ServiceUrls {
     Write-Host "http://localhost:3000 (admin/admin123)"
     Write-Host ""
     Write-Host "  Run " -NoNewline
-    Write-Host ".\scripts\e2e_test.ps1" -ForegroundColor Yellow -NoNewline
+    Write-Host "scripts\e2e_test.ps1" -ForegroundColor Yellow -NoNewline
     Write-Host " to verify the system"
 }
 
 switch ($Action) {
     { $_ -in "up", "start" } {
-        Write-Host "🚀 Starting all services..." -ForegroundColor Yellow
+        Write-Host "Starting all services..." -ForegroundColor Yellow
         Write-Host ""
         
         if ($ComposeCmd -eq "docker compose") {
@@ -88,11 +88,11 @@ switch ($Action) {
         }
         
         Write-Host ""
-        Write-Host "⏳ Waiting for services to be healthy..." -ForegroundColor Yellow
+        Write-Host "Waiting for services to be healthy..." -ForegroundColor Yellow
         Start-Sleep -Seconds 15
         
         Write-Host ""
-        Write-Host "📊 Service Status:" -ForegroundColor Blue
+        Write-Host "Service Status:" -ForegroundColor Blue
         if ($ComposeCmd -eq "docker compose") {
             docker compose ps
         } else {
@@ -103,17 +103,17 @@ switch ($Action) {
     }
     
     { $_ -in "down", "stop" } {
-        Write-Host "🛑 Stopping all services..." -ForegroundColor Yellow
+        Write-Host "Stopping all services..." -ForegroundColor Yellow
         if ($ComposeCmd -eq "docker compose") {
             docker compose down
         } else {
             docker-compose down
         }
-        Write-Host "✅ All services stopped" -ForegroundColor Green
+        Write-Host "All services stopped" -ForegroundColor Green
     }
     
     "restart" {
-        Write-Host "🔄 Restarting all services..." -ForegroundColor Yellow
+        Write-Host "Restarting all services..." -ForegroundColor Yellow
         if ($ComposeCmd -eq "docker compose") {
             docker compose down
             docker compose up -d --build
@@ -121,7 +121,7 @@ switch ($Action) {
             docker-compose down
             docker-compose up -d --build
         }
-        Write-Host "✅ All services restarted" -ForegroundColor Green
+        Write-Host "All services restarted" -ForegroundColor Green
         Show-ServiceUrls
     }
     
@@ -142,7 +142,7 @@ switch ($Action) {
     }
     
     "status" {
-        Write-Host "📊 Service Status:" -ForegroundColor Blue
+        Write-Host "Service Status:" -ForegroundColor Blue
         if ($ComposeCmd -eq "docker compose") {
             docker compose ps
         } else {
@@ -151,14 +151,14 @@ switch ($Action) {
     }
     
     "clean" {
-        Write-Host "🧹 Cleaning up (removing volumes)..." -ForegroundColor Yellow
+        Write-Host "Cleaning up (removing volumes)..." -ForegroundColor Yellow
         if ($ComposeCmd -eq "docker compose") {
             docker compose down -v --remove-orphans
         } else {
             docker-compose down -v --remove-orphans
         }
         docker system prune -f
-        Write-Host "✅ Cleanup complete" -ForegroundColor Green
+        Write-Host "Cleanup complete" -ForegroundColor Green
     }
     
     "help" {
