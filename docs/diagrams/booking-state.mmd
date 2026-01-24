@@ -1,40 +1,20 @@
 stateDiagram-v2
-    [*] --> PENDING: Booking Created
+    [*] --> PENDING: User creates booking
     
-    PENDING --> RESERVED: Seats Reserved
-    PENDING --> EXPIRED: Timeout (15 min)
-    PENDING --> CANCELLED: User Cancel
+    PENDING --> SEATS_LOCKED: Lock acquired
+    PENDING --> FAILED: Lock failed (seats taken)
     
-    RESERVED --> PAYMENT_PENDING: Initiate Payment
-    RESERVED --> EXPIRED: Payment Timeout
-    RESERVED --> CANCELLED: User Cancel
+    SEATS_LOCKED --> AWAITING_PAYMENT: Seats reserved
+    SEATS_LOCKED --> EXPIRED: Timeout (5 min)
     
-    PAYMENT_PENDING --> CONFIRMED: Payment Success
-    PAYMENT_PENDING --> PAYMENT_FAILED: Payment Failed
-    PAYMENT_PENDING --> EXPIRED: Payment Timeout
+    AWAITING_PAYMENT --> CONFIRMED: Payment successful
+    AWAITING_PAYMENT --> FAILED: Payment failed
+    AWAITING_PAYMENT --> EXPIRED: Payment timeout
     
-    PAYMENT_FAILED --> PAYMENT_PENDING: Retry Payment
-    PAYMENT_FAILED --> CANCELLED: Max Retries
+    CONFIRMED --> CANCELLED: User cancels
+    CONFIRMED --> COMPLETED: Showtime passed
     
-    CONFIRMED --> COMPLETED: Show Time Passed
-    CONFIRMED --> REFUNDED: User Refund Request
-    
-    REFUNDED --> [*]
-    CANCELLED --> [*]
-    EXPIRED --> [*]
-    COMPLETED --> [*]
-    
-    note right of RESERVED
-        Seats locked in Redis
-        TTL: 10 minutes
-    end note
-    
-    note right of PAYMENT_PENDING
-        Idempotency key created
-        Circuit breaker active
-    end note
-    
-    note right of CONFIRMED
-        Notification sent via
-        RabbitMQ → Email/SMS
-    end note
+    EXPIRED --> [*]: Locks released
+    FAILED --> [*]: Error returned
+    CANCELLED --> [*]: Refund processed
+    COMPLETED --> [*]: Archived

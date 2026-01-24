@@ -1,13 +1,16 @@
 # =====================================================
+
 # LOAD TESTING GUIDE
+
 # Movie Booking System
+
 # =====================================================
 
-# 📊 Load Testing Documentation
+# Load Testing Documentation
 
 This document describes how to run load tests for the Movie Booking System using **k6** and **Locust**.
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Prerequisites](#prerequisites)
 - [k6 Load Testing](#k6-load-testing)
@@ -69,12 +72,12 @@ k6 run -e BASE_URL=http://localhost k8s/testing/load-test.js
 
 The k6 script (`k8s/testing/load-test.js`) includes:
 
-| Scenario | Description | VUs | Duration |
-|----------|-------------|-----|----------|
-| `smoke` | Quick health check | 1 | 30s |
-| `load` | Normal load testing | 50 | 5m |
-| `stress` | Find breaking point | 100→200 | 10m |
-| `spike` | Sudden traffic spike | 1→100→1 | 3m |
+| Scenario | Description          | VUs     | Duration |
+| -------- | -------------------- | ------- | -------- |
+| `smoke`  | Quick health check   | 1       | 30s      |
+| `load`   | Normal load testing  | 50      | 5m       |
+| `stress` | Find breaking point  | 100→200 | 10m      |
+| `spike`  | Sudden traffic spike | 1→100→1 | 3m       |
 
 ### Run Specific Scenario
 
@@ -165,12 +168,12 @@ kubectl port-forward svc/locust-master 8089:8089 -n movie-booking
 
 ### Key Metrics
 
-| Metric | Good | Warning | Critical |
-|--------|------|---------|----------|
-| **Response Time (p95)** | < 200ms | 200-500ms | > 500ms |
-| **Error Rate** | < 1% | 1-5% | > 5% |
-| **Throughput** | > 100 req/s | 50-100 req/s | < 50 req/s |
-| **Availability** | > 99.9% | 99-99.9% | < 99% |
+| Metric                  | Good        | Warning      | Critical   |
+| ----------------------- | ----------- | ------------ | ---------- |
+| **Response Time (p95)** | < 200ms     | 200-500ms    | > 500ms    |
+| **Error Rate**          | < 1%        | 1-5%         | > 5%       |
+| **Throughput**          | > 100 req/s | 50-100 req/s | < 50 req/s |
+| **Availability**        | > 99.9%     | 99-99.9%     | < 99%      |
 
 ### What to Look For
 
@@ -186,10 +189,10 @@ kubectl port-forward svc/locust-master 8089:8089 -n movie-booking
 ### k6 Smoke Test Results (10 VUs, 30s)
 
 ```
-          /\      |‾‾| /‾‾/   /‾‾/   
-     /\  /  \     |  |/  /   /  /    
-    /  \/    \    |     (   /   ‾‾\  
-   /          \   |  |\  \ |  (‾)  | 
+          /\      |‾‾| /‾‾/   /‾‾/
+     /\  /  \     |  |/  /   /  /
+    /  \/    \    |     (   /   ‾‾\
+   /          \   |  |\  \ |  (‾)  |
   / __________ \  |__| \__\ \_____/ .io
 
   execution: local
@@ -202,17 +205,17 @@ kubectl port-forward svc/locust-master 8089:8089 -n movie-booking
   ✓ status is 200
   ✓ response time < 500ms
 
-  checks.........................: 100.00% ✓ 1847    ✗ 0   
+  checks.........................: 100.00% ✓ 1847    ✗ 0
   data_received..................: 2.1 MB  69 kB/s
   data_sent......................: 312 kB  10 kB/s
-  http_req_blocked...............: avg=1.2ms   min=0s      med=0s      max=45ms    p(90)=1ms     p(95)=8ms    
-  http_req_connecting............: avg=0.8ms   min=0s      med=0s      max=35ms    p(90)=0s      p(95)=5ms    
-  http_req_duration..............: avg=48.2ms  min=5ms     med=42ms    max=198ms   p(90)=89ms    p(95)=112ms  
-  http_req_receiving.............: avg=0.3ms   min=0s      med=0s      max=15ms    p(90)=1ms     p(95)=1ms    
-  http_req_sending...............: avg=0.1ms   min=0s      med=0s      max=5ms     p(90)=0s      p(95)=0s     
-  http_req_waiting...............: avg=47.8ms  min=5ms     med=41ms    max=198ms   p(90)=88ms    p(95)=111ms  
+  http_req_blocked...............: avg=1.2ms   min=0s      med=0s      max=45ms    p(90)=1ms     p(95)=8ms
+  http_req_connecting............: avg=0.8ms   min=0s      med=0s      max=35ms    p(90)=0s      p(95)=5ms
+  http_req_duration..............: avg=48.2ms  min=5ms     med=42ms    max=198ms   p(90)=89ms    p(95)=112ms
+  http_req_receiving.............: avg=0.3ms   min=0s      med=0s      max=15ms    p(90)=1ms     p(95)=1ms
+  http_req_sending...............: avg=0.1ms   min=0s      med=0s      max=5ms     p(90)=0s      p(95)=0s
+  http_req_waiting...............: avg=47.8ms  min=5ms     med=41ms    max=198ms   p(90)=88ms    p(95)=111ms
   http_reqs......................: 1847    61.5/s
-  iteration_duration.............: avg=162ms   min=105ms   med=152ms   max=412ms   p(90)=215ms   p(95)=267ms  
+  iteration_duration.............: avg=162ms   min=105ms   med=152ms   max=412ms   p(90)=215ms   p(95)=267ms
   iterations.....................: 923     30.8/s
   vus............................: 10      min=10    max=10
   vus_max........................: 10      min=10    max=10
@@ -224,17 +227,18 @@ default ✓ [======================================] 10 VUs  30s
 
 ### Locust Results Summary (50 users, 2 minutes)
 
-| Endpoint | Requests | Fails | Avg (ms) | p50 (ms) | p95 (ms) | p99 (ms) |
-|----------|----------|-------|----------|----------|----------|----------|
-| GET /api/auth/health | 1,245 | 0 | 12 | 10 | 25 | 45 |
-| GET /api/movies/movies | 623 | 0 | 45 | 38 | 89 | 145 |
-| GET /api/movies/showtimes | 621 | 0 | 52 | 45 | 98 | 167 |
-| POST /api/auth/register | 312 | 5 | 89 | 78 | 156 | 234 |
-| POST /api/auth/token | 310 | 0 | 67 | 56 | 112 | 189 |
-| POST /api/bookings/book | 156 | 2 | 234 | 198 | 389 | 567 |
-| **Total** | **3,267** | **7** | **58** | **45** | **112** | **198** |
+| Endpoint                  | Requests  | Fails | Avg (ms) | p50 (ms) | p95 (ms) | p99 (ms) |
+| ------------------------- | --------- | ----- | -------- | -------- | -------- | -------- |
+| GET /api/auth/health      | 1,245     | 0     | 12       | 10       | 25       | 45       |
+| GET /api/movies/movies    | 623       | 0     | 45       | 38       | 89       | 145      |
+| GET /api/movies/showtimes | 621       | 0     | 52       | 45       | 98       | 167      |
+| POST /api/auth/register   | 312       | 5     | 89       | 78       | 156      | 234      |
+| POST /api/auth/token      | 310       | 0     | 67       | 56       | 112      | 189      |
+| POST /api/bookings/book   | 156       | 2     | 234      | 198      | 389      | 567      |
+| **Total**                 | **3,267** | **7** | **58**   | **45**   | **112**  | **198**  |
 
 **Summary:**
+
 - ✅ Error Rate: 0.21% (< 1% threshold)
 - ✅ p95 Response Time: 112ms (< 200ms threshold)
 - ✅ Throughput: 27.2 req/s per user

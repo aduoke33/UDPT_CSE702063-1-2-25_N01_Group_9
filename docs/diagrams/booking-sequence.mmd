@@ -1,120 +1,47 @@
 sequenceDiagram
-    participant C as Client
-    participant GW as API Gateway
-    participant AS as Auth Service
-    participant MS as Movie Service
-    participant BS as Booking Service
-    participant PS as Payment Service
-    participant NS as Notification Service
-    participant DB as PostgreSQL
+    participant U as User
+    participant GW as Gateway
+    participant A as Auth
+    participant M as Movie
+    participant B as Booking
     participant R as Redis
-    participant MQ as RabbitMQ
+    participant P as Payment
+    participant N as Notification
 
-    %% User Registration & Login
-    rect rgb(200, 220, 250)
-        Note over C,AS: User Registration & Authentication
-        C->>GW: POST /api/auth/register
-        GW->>AS: Forward request
-        AS->>DB: Create user
-        DB-->>AS: User created
-        AS-->>GW: Return token
-        GW-->>C: JWT token
-    end
+    Note over U,N: 1. User Authentication
+    U->>GW: POST /api/auth/token
+    GW->>A: Forward login request
+    A->>A: Verify credentials
+    A-->>U: JWT Token
 
-    %% Browse Movies
-    rect rgb(200, 250, 220)
-        Note over C,MS: Browse Movies & Showtimes
-        C->>GW: GET /api/movies/movies
-        GW->>MS: Forward request
-        MS->>R: Check cache
-        alt Cache hit
-            R-->>MS: Cached data
-        else Cache miss
-            MS->>DB: Query movies
-            DB-->>MS: Movies list
-            MS->>R: Update cache
-        end
-        MS-->>GW: Movies list
-        GW-->>C: Movies data
-    end
+    Note over U,N: 2. Browse Movies
+    U->>GW: GET /api/movies/showtimes
+    GW->>M: Get available showtimes
+    M-->>U: List of movies and times
 
-    %% Book Seats (Distributed Lock)
-    rect rgb(250, 220, 200)
-        Note over C,BS: Seat Booking with Distributed Lock
-        C->>GW: POST /api/bookings/bookings
-        GW->>BS: Forward request + JWT
-        BS->>AS: Verify token
-        AS-->>BS: Token valid
-        BS->>MS: Get showtime details
-        MS-->>BS: Showtime info
-        
-        %% Distributed Lock for Seat Selection
-        rect rgb(255, 200, 200)
-            Note over BS,R: Distributed Lock (Redis)
-            BS->>R: SET lock:seat:123 NX EX 30
-            R-->>BS: Lock acquired
-            BS->>DB: Check seat availability
-            DB-->>BS: Seats available
-            BS->>DB: Reserve seats
-            DB-->>BS: Seats reserved
-            BS->>R: DEL lock:seat:123
-        end
-        
-        BS->>DB: Create booking (pending)
-        DB-->>BS: Booking created
-        BS-->>GW: Booking details
-        GW-->>C: Booking confirmation
-    end
+    Note over U,N: 3. Book Seats
+    U->>GW: POST /api/bookings/book
+    GW->>B: Create booking request
+    
+    B->>R: SETNX lock:seat:A1
+    R-->>B: OK (locked)
+    B->>R: SETNX lock:seat:A2
+    R-->>B: OK (locked)
+    
+    B->>B: Save booking to database
+    B-->>U: Booking created (pending)
 
-    %% Payment Processing
-    rect rgb(250, 250, 200)
-        Note over C,PS: Payment Processing (Idempotency)
-        C->>GW: POST /api/payments (Idempotency-Key: abc)
-        GW->>PS: Forward request
-        
-        %% Idempotency Check
-        rect rgb(255, 255, 180)
-            Note over PS,R: Idempotency Check
-            PS->>R: GET idempotency:abc
-            alt Already processed
-                R-->>PS: Previous result
-                PS-->>GW: Return cached result
-            else New request
-                R-->>PS: null
-                PS->>DB: Process payment
-                DB-->>PS: Payment successful
-                PS->>R: SET idempotency:abc result EX 86400
-            end
-        end
-        
-        PS->>BS: Update booking status
-        BS->>DB: Confirm booking
-        DB-->>BS: Updated
-        
-        %% Async Notification via MQ
-        rect rgb(200, 250, 250)
-            Note over PS,NS: Async Notification (RabbitMQ)
-            PS->>MQ: Publish payment.completed
-            MQ-->>NS: Consume event
-            NS->>DB: Create notification
-            NS->>C: Send email/SMS
-        end
-        
-        PS-->>GW: Payment confirmation
-        GW-->>C: Success response
-    end
+    Note over U,N: 4. Process Payment
+    U->>GW: POST /api/payments/process
+    GW->>P: Process payment
+    P->>R: Check idempotency key
+    R-->>P: Not exists
+    P->>P: Charge payment
+    P->>R: Store idempotency key
+    P-->>B: Payment completed
 
-    %% Circuit Breaker Example
-    rect rgb(250, 200, 250)
-        Note over BS,PS: Circuit Breaker Pattern
-        BS->>PS: Request payment
-        alt Circuit CLOSED
-            PS-->>BS: Normal response
-        else Circuit OPEN (5+ failures)
-            PS--xBS: Fast fail (no actual call)
-            Note over BS: Fallback response
-        else Circuit HALF-OPEN
-            PS-->>BS: Test request
-            Note over PS: If success, CLOSE circuit
-        end
-    end
+    Note over U,N: 5. Confirm and Notify
+    B->>B: Update status to confirmed
+    B->>N: Publish booking.confirmed event
+    N->>N: Send confirmation email
+    N-->>U: Email: Your tickets are ready

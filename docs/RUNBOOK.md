@@ -1,10 +1,10 @@
-# 📖 Operations Runbook
+# Operations Runbook
 
 ## Movie Booking System - Incident Response & Operations Guide
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Service Overview](#service-overview)
 - [Health Checks](#health-checks)
@@ -17,13 +17,13 @@
 
 ## Service Overview
 
-| Service | Port | Database | Dependencies |
-|---------|------|----------|--------------|
-| Auth Service | 8001 | postgres-auth:5432 | Redis |
-| Movie Service | 8002 | postgres-movie:5432 | Redis, Auth |
-| Booking Service | 8003 | postgres-booking:5432 | Redis, RabbitMQ, Auth, Movie |
-| Payment Service | 8004 | postgres-payment:5432 | RabbitMQ, Auth, Booking |
-| Notification Service | 8005 | postgres-notification:5432 | RabbitMQ |
+| Service              | Port | Database                   | Dependencies                 |
+| -------------------- | ---- | -------------------------- | ---------------------------- |
+| Auth Service         | 8001 | postgres-auth:5432         | Redis                        |
+| Movie Service        | 8002 | postgres-movie:5432        | Redis, Auth                  |
+| Booking Service      | 8003 | postgres-booking:5432      | Redis, RabbitMQ, Auth, Movie |
+| Payment Service      | 8004 | postgres-payment:5432      | RabbitMQ, Auth, Booking      |
+| Notification Service | 8005 | postgres-notification:5432 | RabbitMQ                     |
 
 ### Service URLs (Local)
 
@@ -64,17 +64,19 @@ docker inspect --format='{{.State.Health.Status}}' auth_service
 
 ## Common Issues & Solutions
 
-### 🔴 Issue: Service Won't Start
+### Issue: Service Won't Start
 
 **Symptoms:** Container exits immediately, health check fails
 
 **Diagnosis:**
+
 ```bash
 docker-compose logs <service-name>
 docker inspect <container-name>
 ```
 
 **Solutions:**
+
 1. Check database connection string
 2. Verify dependent services are running
 3. Check for port conflicts
@@ -82,11 +84,12 @@ docker inspect <container-name>
 
 ---
 
-### 🔴 Issue: Database Connection Failed
+### Issue: Database Connection Failed
 
 **Symptoms:** `Connection refused` or `timeout` errors
 
 **Diagnosis:**
+
 ```bash
 # Check database container
 docker-compose logs postgres-auth
@@ -96,6 +99,7 @@ docker exec -it postgres_auth psql -U auth_user -d auth_db -c "SELECT 1"
 ```
 
 **Solutions:**
+
 1. Wait for database to be ready (healthcheck)
 2. Verify credentials in environment
 3. Check network connectivity
@@ -103,11 +107,12 @@ docker exec -it postgres_auth psql -U auth_user -d auth_db -c "SELECT 1"
 
 ---
 
-### 🔴 Issue: RabbitMQ Queue Backlog
+### Issue: RabbitMQ Queue Backlog
 
 **Symptoms:** Messages not being processed, high queue depth
 
 **Diagnosis:**
+
 ```bash
 # Check RabbitMQ management
 curl -u admin:admin123 http://localhost:15672/api/queues
@@ -116,6 +121,7 @@ curl -u admin:admin123 http://localhost:15672/api/queues
 ```
 
 **Solutions:**
+
 1. Check consumer services (payment, notification)
 2. Scale consumers if needed
 3. Check for poison messages
@@ -123,11 +129,12 @@ curl -u admin:admin123 http://localhost:15672/api/queues
 
 ---
 
-### 🔴 Issue: Redis Connection Issues
+### Issue: Redis Connection Issues
 
 **Symptoms:** Session/cache failures, slow responses
 
 **Diagnosis:**
+
 ```bash
 # Check Redis
 docker exec -it movie_booking_redis redis-cli -a redis123 ping
@@ -137,6 +144,7 @@ docker exec -it movie_booking_redis redis-cli -a redis123 info memory
 ```
 
 **Solutions:**
+
 1. Verify Redis password
 2. Check memory limits
 3. Flush cache if corrupted: `FLUSHALL` (data loss!)
@@ -144,11 +152,12 @@ docker exec -it movie_booking_redis redis-cli -a redis123 info memory
 
 ---
 
-### 🔴 Issue: High Response Times
+### Issue: High Response Times
 
 **Symptoms:** p95 > 500ms, user complaints
 
 **Diagnosis:**
+
 ```bash
 # Check container resources
 docker stats
@@ -159,6 +168,7 @@ docker exec -it postgres_auth psql -U auth_user -d auth_db \
 ```
 
 **Solutions:**
+
 1. Scale service replicas
 2. Add database indexes
 3. Enable/check Redis caching
@@ -166,11 +176,12 @@ docker exec -it postgres_auth psql -U auth_user -d auth_db \
 
 ---
 
-### 🔴 Issue: Booking Race Condition
+### Issue: Booking Race Condition
 
 **Symptoms:** Double bookings, seat conflicts
 
 **Diagnosis:**
+
 ```bash
 # Check booking logs
 docker-compose logs booking-service | grep -i "lock\|conflict"
@@ -180,6 +191,7 @@ docker exec -it movie_booking_redis redis-cli -a redis123 keys "lock:*"
 ```
 
 **Solutions:**
+
 1. Verify distributed lock is working
 2. Check lock TTL settings
 3. Review booking service code
@@ -191,12 +203,12 @@ docker exec -it movie_booking_redis redis-cli -a redis123 keys "lock:*"
 
 ### Severity Levels
 
-| Level | Description | Response Time | Examples |
-|-------|-------------|---------------|----------|
-| **P1** | System down | 15 min | All services unreachable |
-| **P2** | Major feature broken | 1 hour | Payments failing |
-| **P3** | Minor issue | 4 hours | Slow responses |
-| **P4** | Low impact | 24 hours | UI bugs |
+| Level  | Description          | Response Time | Examples                 |
+| ------ | -------------------- | ------------- | ------------------------ |
+| **P1** | System down          | 15 min        | All services unreachable |
+| **P2** | Major feature broken | 1 hour        | Payments failing         |
+| **P3** | Minor issue          | 4 hours       | Slow responses           |
+| **P4** | Low impact           | 24 hours      | UI bugs                  |
 
 ### P1 Response Checklist
 
@@ -236,13 +248,13 @@ docker-compose up -d --build
 
 ### Key Metrics to Watch
 
-| Metric | Warning | Critical |
-|--------|---------|----------|
-| Error Rate | > 1% | > 5% |
-| p95 Latency | > 200ms | > 500ms |
-| CPU Usage | > 70% | > 90% |
-| Memory Usage | > 70% | > 90% |
-| Queue Depth | > 1000 | > 5000 |
+| Metric       | Warning | Critical |
+| ------------ | ------- | -------- |
+| Error Rate   | > 1%    | > 5%     |
+| p95 Latency  | > 200ms | > 500ms  |
+| CPU Usage    | > 70%   | > 90%    |
+| Memory Usage | > 70%   | > 90%    |
+| Queue Depth  | > 1000  | > 5000   |
 
 ### Prometheus Queries
 
@@ -296,16 +308,16 @@ docker-compose up -d --scale booking-service=3
 
 ## Contacts
 
-| Role | Contact | Escalation |
-|------|---------|------------|
-| On-Call Engineer | - | 15 min |
-| Tech Lead | - | 30 min |
-| Product Owner | - | 1 hour |
+| Role             | Contact | Escalation |
+| ---------------- | ------- | ---------- |
+| On-Call Engineer | -       | 15 min     |
+| Tech Lead        | -       | 30 min     |
+| Product Owner    | -       | 1 hour     |
 
 ---
 
 ## Revision History
 
-| Date | Version | Changes |
-|------|---------|---------|
-| 2026-01-24 | 1.0 | Initial runbook |
+| Date       | Version | Changes         |
+| ---------- | ------- | --------------- |
+| 2026-01-24 | 1.0     | Initial runbook |

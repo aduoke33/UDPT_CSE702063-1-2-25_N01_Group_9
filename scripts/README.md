@@ -2,7 +2,7 @@
 
 Các scripts tiện ích để quản lý hệ thống database-per-service của Movie Booking System.
 
-## 📋 Danh sách Scripts
+## Danh sách Scripts
 
 ### 1. `db-manager.ps1` (Windows PowerShell)
 
@@ -16,7 +16,7 @@ Script quản lý databases trên Linux/Mac.
 
 Script kiểm tra toàn diện hệ thống databases.
 
-## 🚀 Cách sử dụng
+## Cách sử dụng
 
 ### Windows (PowerShell)
 
@@ -74,7 +74,7 @@ chmod +x scripts/db-manager.sh
 ./scripts/db-manager.sh reset payment
 ```
 
-## 📊 Các Service Databases
+## Các Service Databases
 
 Hệ thống có 5 databases độc lập:
 
@@ -86,15 +86,15 @@ Hệ thống có 5 databases độc lập:
 | payment      | payments_db      | 5436 | payment_user      |
 | notification | notifications_db | 5437 | notification_user |
 
-## 🔍 Script Validation
+## Script Validation
 
 Script `validate-databases.ps1` thực hiện kiểm tra toàn diện:
 
-1. ✅ Kiểm tra Docker containers đang chạy
-2. ✅ Test kết nối đến từng database
-3. ✅ Verify database isolation (mỗi service có DB riêng)
-4. ✅ Kiểm tra service endpoints (/health)
-5. 📊 Hiển thị statistics (size, tables, connections)
+1. Kiểm tra Docker containers đang chạy
+2. Test kết nối đến từng database
+3. Verify database isolation (mỗi service có DB riêng)
+4. Kiểm tra service endpoints (/health)
+5. Hiển thị statistics (size, tables, connections)
 
 **Ví dụ kết quả:**
 
@@ -105,29 +105,29 @@ Database Architecture Validation
 
 Step 1: Checking Docker Containers
 -----------------------------------
-Checking Auth Service (postgres-auth)... ✓ Running
-Checking Movie Service (postgres-movie)... ✓ Running
-Checking Booking Service (postgres-booking)... ✓ Running
-Checking Payment Service (postgres-payment)... ✓ Running
-Checking Notification Service (postgres-notification)... ✓ Running
+Checking Auth Service (postgres-auth)... OK Running
+Checking Movie Service (postgres-movie)... OK Running
+Checking Booking Service (postgres-booking)... OK Running
+Checking Payment Service (postgres-payment)... OK Running
+Checking Notification Service (postgres-notification)... OK Running
 
 Step 2: Testing Database Connections
 -------------------------------------
-Testing Auth Service database... ✓ Connected
-Testing Movie Service database... ✓ Connected
-Testing Booking Service database... ✓ Connected
-Testing Payment Service database... ✓ Connected
-Testing Notification Service database... ✓ Connected
+Testing Auth Service database... OK Connected
+Testing Movie Service database... OK Connected
+Testing Booking Service database... OK Connected
+Testing Payment Service database... OK Connected
+Testing Notification Service database... OK Connected
 
 ...
 
 ======================================
-✓ All Tests Passed
+All Tests Passed
 Database-per-Service architecture is working correctly!
 ======================================
 ```
 
-## 💾 Backup & Restore
+## Backup & Restore
 
 ### Backup Strategy
 
