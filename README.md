@@ -2,13 +2,13 @@
 
 A production-grade distributed movie ticket booking system built with microservices architecture.
 
-| Field            | Value                                        |
-|------------------|----------------------------------------------|
-| **Course Code**  | CSE702063                                    |
-| **Course Name**  | Distributed Applications (Ung dung Phan tan) |
-| **Group**        | N01 - Group 9                                |
-| **Semester**     | 1-2-25                                       |
-| **Version**      | 2.0                                          |
+| Field           | Value                                        |
+| --------------- | -------------------------------------------- |
+| **Course Code** | CSE702063                                    |
+| **Course Name** | Distributed Applications (Ung dung Phan tan) |
+| **Group**       | N01 - Group 9                                |
+| **Semester**    | 1-2-25                                       |
+| **Version**     | 2.0                                          |
 
 ---
 
@@ -28,13 +28,13 @@ This project demonstrates a real-world distributed application for booking movie
 
 The system consists of 5 independent microservices:
 
-| Service              | Port | Responsibility                |
-|----------------------|------|-------------------------------|
-| Auth Service         | 8001 | User login, JWT tokens        |
-| Movie Service        | 8002 | Movie catalog, showtimes      |
-| Booking Service      | 8003 | Seat reservation, locking     |
-| Payment Service      | 8004 | Payment processing            |
-| Notification Service | 8005 | Email/SMS notifications       |
+| Service              | Port | Responsibility            |
+| -------------------- | ---- | ------------------------- |
+| Auth Service         | 8001 | User login, JWT tokens    |
+| Movie Service        | 8002 | Movie catalog, showtimes  |
+| Booking Service      | 8003 | Seat reservation, locking |
+| Payment Service      | 8004 | Payment processing        |
+| Notification Service | 8005 | Email/SMS notifications   |
 
 ```
                               +-------------+
@@ -107,41 +107,41 @@ curl http://localhost/api/auth/health
 
 ### Authentication (`/api/auth`)
 
-| Method | Endpoint    | Description       | Auth |
-|--------|-------------|-------------------|------|
-| POST   | /register   | Create account    | No   |
-| POST   | /token      | Login, get JWT    | No   |
-| GET    | /verify     | Validate token    | Yes  |
-| GET    | /health     | Service health    | No   |
+| Method | Endpoint  | Description    | Auth |
+| ------ | --------- | -------------- | ---- |
+| POST   | /register | Create account | No   |
+| POST   | /token    | Login, get JWT | No   |
+| GET    | /verify   | Validate token | Yes  |
+| GET    | /health   | Service health | No   |
 
 ### Movies (`/api/movies`)
 
-| Method | Endpoint               | Description        | Auth |
-|--------|------------------------|--------------------|------|
-| GET    | /movies                | List movies        | No   |
-| GET    | /movies/{id}           | Movie details      | No   |
-| GET    | /showtimes             | List showtimes     | No   |
-| GET    | /showtimes/{id}/seats  | Seat availability  | No   |
-| GET    | /health                | Service health     | No   |
+| Method | Endpoint              | Description       | Auth |
+| ------ | --------------------- | ----------------- | ---- |
+| GET    | /movies               | List movies       | No   |
+| GET    | /movies/{id}          | Movie details     | No   |
+| GET    | /showtimes            | List showtimes    | No   |
+| GET    | /showtimes/{id}/seats | Seat availability | No   |
+| GET    | /health               | Service health    | No   |
 
 ### Bookings (`/api/bookings`)
 
-| Method | Endpoint              | Description      | Auth |
-|--------|-----------------------|------------------|------|
-| POST   | /book                 | Create booking   | Yes  |
-| GET    | /bookings             | List bookings    | Yes  |
-| GET    | /bookings/{id}        | Booking details  | Yes  |
-| POST   | /bookings/{id}/cancel | Cancel booking   | Yes  |
-| GET    | /health               | Service health   | No   |
+| Method | Endpoint              | Description     | Auth |
+| ------ | --------------------- | --------------- | ---- |
+| POST   | /book                 | Create booking  | Yes  |
+| GET    | /bookings             | List bookings   | Yes  |
+| GET    | /bookings/{id}        | Booking details | Yes  |
+| POST   | /bookings/{id}/cancel | Cancel booking  | Yes  |
+| GET    | /health               | Service health  | No   |
 
 ### Payments (`/api/payments`)
 
-| Method | Endpoint              | Description      | Auth |
-|--------|-----------------------|------------------|------|
-| POST   | /process              | Process payment  | Yes  |
-| GET    | /payments             | Payment history  | Yes  |
-| POST   | /payments/{id}/refund | Request refund   | Yes  |
-| GET    | /health               | Service health   | No   |
+| Method | Endpoint              | Description     | Auth |
+| ------ | --------------------- | --------------- | ---- |
+| POST   | /process              | Process payment | Yes  |
+| GET    | /payments             | Payment history | Yes  |
+| POST   | /payments/{id}/refund | Request refund  | Yes  |
+| GET    | /health               | Service health  | No   |
 
 ---
 
@@ -191,7 +191,7 @@ curl -X POST http://localhost/api/bookings/book \
 ### Application
 
 | Component  | Technology     |
-|------------|----------------|
+| ---------- | -------------- |
 | Language   | Python 3.11    |
 | Framework  | FastAPI        |
 | ORM        | SQLAlchemy 2.0 |
@@ -199,14 +199,14 @@ curl -X POST http://localhost/api/bookings/book \
 
 ### Infrastructure
 
-| Component     | Technology       |
-|---------------|------------------|
-| Database      | PostgreSQL 15    |
-| Cache         | Redis 7          |
-| Message Queue | RabbitMQ 3.12    |
-| Gateway       | NGINX            |
-| Containers    | Docker           |
-| Orchestration | Kubernetes       |
+| Component     | Technology           |
+| ------------- | -------------------- |
+| Database      | PostgreSQL 15        |
+| Cache         | Redis 7              |
+| Message Queue | RabbitMQ 3.12        |
+| Gateway       | NGINX                |
+| Containers    | Docker               |
+| Orchestration | Kubernetes           |
 | Monitoring    | Prometheus + Grafana |
 
 ---
@@ -283,26 +283,26 @@ UDPT_CSE702063-1-2-25_N01_Group_9/
 
 ## Service URLs (Development)
 
-| Service          | URL                    |
-|------------------|------------------------|
-| API Gateway      | http://localhost       |
-| Auth Swagger     | http://localhost:8001/docs |
-| Movie Swagger    | http://localhost:8002/docs |
-| Booking Swagger  | http://localhost:8003/docs |
-| Payment Swagger  | http://localhost:8004/docs |
+| Service              | URL                        |
+| -------------------- | -------------------------- |
+| API Gateway          | http://localhost           |
+| Auth Swagger         | http://localhost:8001/docs |
+| Movie Swagger        | http://localhost:8002/docs |
+| Booking Swagger      | http://localhost:8003/docs |
+| Payment Swagger      | http://localhost:8004/docs |
 | Notification Swagger | http://localhost:8005/docs |
-| RabbitMQ UI      | http://localhost:15672 |
-| Grafana          | http://localhost:3000  |
-| Prometheus       | http://localhost:9090  |
+| RabbitMQ UI          | http://localhost:15672     |
+| Grafana              | http://localhost:3000      |
+| Prometheus           | http://localhost:9090      |
 
 ---
 
 ## Documentation
 
-| Document          | Description                    |
-|-------------------|--------------------------------|
-| ARCHITECTURE.md   | System architecture details    |
-| SYSTEM_DESIGN.md  | Design decisions and trade-offs|
+| Document         | Description                     |
+| ---------------- | ------------------------------- |
+| ARCHITECTURE.md  | System architecture details     |
+| SYSTEM_DESIGN.md | Design decisions and trade-offs |
 
 ---
 
