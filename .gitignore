@@ -144,3 +144,31 @@ TECHNICAL_ARCHITECTURE.md
 SYSTEM_ARCHITECTURE_DETAILED.md
 KUBERNETES_ARCHITECTURE.md
 CICD_PIPELINE.md
+
+# Sensitive or local deployment files (do not publish)
+docker-compose.yml
+docker-compose.dev.yml
+docker-compose.test.yml
+docker-compose.*.yml
+deploy.sh
+deploy.ps1
+scripts/deploy.sh
+scripts/deploy.ps1
+
+# Local test scripts that may contain credentials or test tokens
+test_api_full.sh
+test_api.sh
+test_api.ps1
+scripts/test_api_full.sh
+scripts/test_api.sh
+scripts/test_api.ps1
+
+# Kubernetes secrets
+k8s/secrets/*.yaml
+
+# Ignore any files with embedded credentials
+*.secret
+*.key
+*.pem
+.env.local
+.env.*
