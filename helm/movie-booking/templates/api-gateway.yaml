@@ -1,0 +1,274 @@
+{{- if .Values.apiGateway.enabled }}
+# =====================================================
+# API GATEWAY - NGINX
+# Load Balancing & Routing
+# =====================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "movie-booking.fullname" . }}-nginx-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "movie-booking.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /var/run/nginx.pid;
+
+    events {
+        worker_connections 2048;
+        use epoll;
+        multi_accept on;
+    }
+
+    http {
+        include /etc/nginx/mime.types;
+        default_type application/octet-stream;
+        
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                        '$status $body_bytes_sent "$http_referer" '
+                        '"$http_user_agent" "$http_x_forwarded_for"';
+        
+        access_log /var/log/nginx/access.log main;
+        
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        types_hash_max_size 2048;
+
+        # Rate limiting
+        limit_req_zone $binary_remote_addr zone=general:10m rate=60r/s;
+        limit_req_zone $binary_remote_addr zone=auth:10m rate=20r/s;
+        limit_req_zone $binary_remote_addr zone=booking:10m rate=10r/s;
+
+        # Upstream definitions
+        upstream auth_service {
+            least_conn;
+            server auth-service:8000 max_fails=3 fail_timeout=30s;
+            keepalive 32;
+        }
+
+        upstream movie_service {
+            least_conn;
+            server movie-service:8000 max_fails=3 fail_timeout=30s;
+            keepalive 32;
+        }
+
+        upstream booking_service {
+            least_conn;
+            server booking-service:8000 max_fails=3 fail_timeout=30s;
+            keepalive 32;
+        }
+
+        upstream payment_service {
+            least_conn;
+            server payment-service:8000 max_fails=3 fail_timeout=30s;
+            keepalive 32;
+        }
+
+        upstream notification_service {
+            least_conn;
+            server notification-service:8000 max_fails=3 fail_timeout=30s;
+            keepalive 32;
+        }
+
+        server {
+            listen 80;
+            server_name _;
+
+            # Security headers
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-XSS-Protection "1; mode=block" always;
+
+            # Health check
+            location /health {
+                access_log off;
+                return 200 'OK';
+                add_header Content-Type text/plain;
+            }
+
+            # Auth service
+            location /api/v1/auth/ {
+                limit_req zone=auth burst=20 nodelay;
+                proxy_pass http://auth_service/api/v1/auth/;
+                proxy_http_version 1.1;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header Connection "";
+                proxy_connect_timeout 30s;
+                proxy_send_timeout 30s;
+                proxy_read_timeout 30s;
+            }
+
+            # User routes
+            location /api/v1/users/ {
+                limit_req zone=auth burst=20 nodelay;
+                proxy_pass http://auth_service/api/v1/users/;
+                proxy_http_version 1.1;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header Connection "";
+            }
+
+            # Movie service
+            location /api/v1/movies/ {
+                limit_req zone=general burst=50 nodelay;
+                proxy_pass http://movie_service/api/v1/movies/;
+                proxy_http_version 1.1;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header Connection "";
+            }
+
+            # Showtimes
+            location /api/v1/showtimes/ {
+                limit_req zone=general burst=50 nodelay;
+                proxy_pass http://movie_service/api/v1/showtimes/;
+                proxy_http_version 1.1;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header Connection "";
+            }
+
+            # Booking service
+            location /api/v1/bookings/ {
+                limit_req zone=booking burst=10 nodelay;
+                proxy_pass http://booking_service/api/v1/bookings/;
+                proxy_http_version 1.1;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header Connection "";
+            }
+
+            # Seats
+            location /api/v1/seats/ {
+                limit_req zone=booking burst=20 nodelay;
+                proxy_pass http://booking_service/api/v1/seats/;
+                proxy_http_version 1.1;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header Connection "";
+            }
+
+            # Payment service
+            location /api/v1/payments/ {
+                limit_req zone=booking burst=10 nodelay;
+                proxy_pass http://payment_service/api/v1/payments/;
+                proxy_http_version 1.1;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header Connection "";
+            }
+
+            # Notification service
+            location /api/v1/notifications/ {
+                limit_req zone=general burst=20 nodelay;
+                proxy_pass http://notification_service/api/v1/notifications/;
+                proxy_http_version 1.1;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header Connection "";
+            }
+
+            # Default - 404
+            location / {
+                return 404 '{"error": "Not Found", "message": "The requested endpoint does not exist"}';
+                add_header Content-Type application/json;
+            }
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: api-gateway
+    {{- include "movie-booking.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.apiGateway.replicaCount }}
+  selector:
+    matchLabels:
+      app: api-gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        tier: gateway
+    spec:
+      containers:
+      - name: nginx
+        image: "{{ .Values.apiGateway.image.repository }}:{{ .Values.apiGateway.image.tag }}"
+        imagePullPolicy: {{ .Values.apiGateway.image.pullPolicy }}
+        ports:
+        - containerPort: 80
+          name: http
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        resources:
+          {{- toYaml .Values.apiGateway.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: {{ include "movie-booking.fullname" . }}-nginx-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: api-gateway
+    {{- include "movie-booking.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.apiGateway.service.type }}
+  ports:
+  - port: {{ .Values.apiGateway.service.port }}
+    targetPort: 80
+    protocol: TCP
+    name: http
+    {{- if and (eq .Values.apiGateway.service.type "NodePort") .Values.apiGateway.service.nodePort }}
+    nodePort: {{ .Values.apiGateway.service.nodePort }}
+    {{- end }}
+  selector:
+    app: api-gateway
+{{- end }}

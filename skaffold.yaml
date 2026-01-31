@@ -14,25 +14,46 @@ build:
       context: services/auth-service
       docker:
         dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "app/**/*.py"
+            dest: /app
     - image: movie-booking/movie-service
       context: services/movie-service
       docker:
         dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "app/**/*.py"
+            dest: /app
     - image: movie-booking/booking-service
       context: services/booking-service
       docker:
         dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "app/**/*.py"
+            dest: /app
     - image: movie-booking/payment-service
       context: services/payment-service
       docker:
         dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "app/**/*.py"
+            dest: /app
     - image: movie-booking/notification-service
       context: services/notification-service
       docker:
         dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "app/**/*.py"
+            dest: /app
   local:
     push: false
     useBuildkit: true
+    concurrency: 3
 
 deploy:
   helm:
@@ -45,6 +66,47 @@ deploy:
           image.pullPolicy: Never
 
 profiles:
+  # =====================================================
+  # LOCAL DEVELOPMENT PROFILE
+  # =====================================================
+  - name: local
+    activation:
+      - command: dev
+      - kubeContext: minikube
+      - kubeContext: docker-desktop
+      - kubeContext: kind-movie-booking
+    build:
+      local:
+        push: false
+        useBuildkit: true
+      tagPolicy:
+        sha256: {}
+    deploy:
+      helm:
+        releases:
+          - name: movie-booking
+            chartPath: helm/movie-booking
+            namespace: movie-booking-local
+            createNamespace: true
+            valuesFiles:
+              - helm/movie-booking/values-local.yaml
+            setValues:
+              image.pullPolicy: Never
+    portForward:
+      - resourceType: service
+        resourceName: api-gateway
+        namespace: movie-booking-local
+        port: 80
+        localPort: 8080
+      - resourceType: service
+        resourceName: rabbitmq-service
+        namespace: movie-booking-local
+        port: 15672
+        localPort: 15672
+
+  # =====================================================
+  # DEV PROFILE (with file sync)
+  # =====================================================
   - name: dev
     activation:
       - command: dev
@@ -56,11 +118,19 @@ profiles:
         releases:
           - name: movie-booking
             chartPath: helm/movie-booking
-            namespace: movie-booking-dev
+            namespace: movie-booking-local
             createNamespace: true
+            valuesFiles:
+              - helm/movie-booking/values-local.yaml
             setValues:
               replicaCount: 1
               image.pullPolicy: Never
+    portForward:
+      - resourceType: service
+        resourceName: api-gateway
+        namespace: movie-booking-local
+        port: 80
+        localPort: 8080
 
   - name: staging
     build:

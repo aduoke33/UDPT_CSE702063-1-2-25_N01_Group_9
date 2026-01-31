@@ -19,6 +19,8 @@ maintainers:
     email: team@moviebooking.com
 sources:
   - https://github.com/your-org/movie-booking-system
+# Dependencies are optional - disabled for local development
+# Enable in production by setting postgresql.enabled, redis.enabled, rabbitmq.enabled
 dependencies:
   - name: postgresql
     version: "12.x.x"

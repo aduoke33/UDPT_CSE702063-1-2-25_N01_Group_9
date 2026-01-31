@@ -130,6 +130,95 @@ helm-template: ## Template Helm chart (dry-run)
 	helm template movie-booking ./helm/movie-booking
 
 # =====================================================
+# Local K8s Commands (minikube/kind/docker-desktop)
+# =====================================================
+
+k8s-local-start: ## Start local Kubernetes cluster (minikube)
+	@echo "Starting minikube cluster..."
+	minikube start --cpus=4 --memory=8192 --driver=docker
+	minikube addons enable ingress
+	minikube addons enable metrics-server
+	@echo "Cluster started! Run 'eval \$$(minikube docker-env)' to use minikube's Docker daemon"
+
+k8s-local-stop: ## Stop local Kubernetes cluster
+	minikube stop
+
+k8s-local-build: ## Build images for local K8s
+	@echo "Building images for local K8s..."
+	eval $$(minikube docker-env) && \
+	docker build -t movie-booking/auth-service:local services/auth-service && \
+	docker build -t movie-booking/movie-service:local services/movie-service && \
+	docker build -t movie-booking/booking-service:local services/booking-service && \
+	docker build -t movie-booking/payment-service:local services/payment-service && \
+	docker build -t movie-booking/notification-service:local services/notification-service
+	@echo "All images built successfully!"
+
+k8s-local-deploy: ## Deploy to local K8s with Helm
+	@echo "Deploying to local Kubernetes..."
+	helm upgrade --install movie-booking ./helm/movie-booking \
+		-f ./helm/movie-booking/values-local.yaml \
+		-n movie-booking-local \
+		--create-namespace \
+		--wait \
+		--timeout 10m
+	@echo "Deployment complete!"
+
+k8s-local-all: k8s-local-start k8s-local-build k8s-local-deploy ## Full local K8s setup
+	@echo ""
+	@echo "======================================"
+	@echo "  Local K8s deployment complete! 🎉"
+	@echo "======================================"
+	@echo ""
+	@echo "Access the API Gateway:"
+	@echo "  minikube service api-gateway -n movie-booking-local"
+	@echo ""
+	@echo "Or port-forward:"
+	@echo "  kubectl port-forward svc/api-gateway 8080:80 -n movie-booking-local"
+	@echo ""
+
+k8s-local-status: ## Check local K8s deployment status
+	kubectl get all -n movie-booking-local
+
+k8s-local-logs: ## View logs for local K8s services
+	kubectl logs -f -l tier=backend -n movie-booking-local --all-containers
+
+k8s-local-clean: ## Clean local K8s resources
+	helm uninstall movie-booking -n movie-booking-local || true
+	kubectl delete namespace movie-booking-local --ignore-not-found=true
+
+k8s-local-dashboard: ## Open minikube dashboard
+	minikube dashboard
+
+k8s-local-tunnel: ## Create minikube tunnel for LoadBalancer services
+	minikube tunnel
+
+# =====================================================
+# Kustomize Commands
+# =====================================================
+
+kustomize-local: ## Deploy using Kustomize (local overlay)
+	kubectl apply -k k8s/overlays/local
+
+kustomize-staging: ## Deploy using Kustomize (staging overlay)
+	kubectl apply -k k8s/overlays/staging
+
+kustomize-local-delete: ## Delete Kustomize local deployment
+	kubectl delete -k k8s/overlays/local
+
+# =====================================================
+# Skaffold Commands
+# =====================================================
+
+skaffold-dev: ## Start Skaffold development mode
+	skaffold dev -p local
+
+skaffold-run: ## Deploy with Skaffold
+	skaffold run -p local
+
+skaffold-delete: ## Delete Skaffold deployment
+	skaffold delete -p local
+
+# =====================================================
 # Testing Commands
 # =====================================================
 

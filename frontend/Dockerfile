@@ -1,23 +1,75 @@
 # =====================================================
-# FRONTEND PLACEHOLDER
+# FRONTEND - Laravel PHP Application
 # Movie Booking System
-# This is a placeholder until the real frontend is ready
 # =====================================================
 
-FROM nginx:1.25-alpine
+FROM php:8.2-fpm-alpine
 
 LABEL maintainer="Movie Booking Team"
-LABEL description="Frontend Placeholder for Movie Booking System"
+LABEL description="Laravel Frontend for Movie Booking System"
 
-# Install curl for healthcheck
-RUN apk add --no-cache curl
+# Install system dependencies
+RUN apk add --no-cache \
+    nginx \
+    supervisor \
+    git \
+    curl \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    zip \
+    unzip \
+    oniguruma-dev \
+    libxml2-dev \
+    icu-dev
 
-# Remove default nginx config
-RUN rm /etc/nginx/conf.d/default.conf
+# Install PHP extensions
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) \
+    gd \
+    pdo \
+    pdo_mysql \
+    mbstring \
+    xml \
+    bcmath \
+    intl \
+    opcache
 
-# Copy placeholder content
-COPY placeholder/ /usr/share/nginx/html/
-COPY nginx-frontend.conf /etc/nginx/conf.d/default.conf
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Set working directory
+WORKDIR /var/www/html
+
+# Copy all application files
+COPY . .
+
+# Create .env file from .env.example
+RUN cp .env.example .env
+
+# Create required directories BEFORE composer install
+RUN mkdir -p storage/framework/{sessions,views,cache/data} \
+    && mkdir -p storage/app/public \
+    && mkdir -p storage/logs \
+    && mkdir -p bootstrap/cache
+
+# Install dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Generate APP_KEY
+RUN php artisan key:generate --force
+
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 775 storage \
+    && chmod -R 775 bootstrap/cache
+
+# Copy nginx config
+COPY nginx-frontend.conf /etc/nginx/http.d/default.conf
+
+# Copy supervisor config
+RUN mkdir -p /var/log/supervisor
+COPY supervisord.conf /etc/supervisord.conf
 
 # Expose port 80
 EXPOSE 80
@@ -26,5 +78,5 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost/health || exit 1
 
-# Run nginx in foreground
-CMD ["nginx", "-g", "daemon off;"]
+# Start supervisor
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisord.conf"]

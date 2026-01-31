@@ -1,0 +1,100 @@
+{{- if .Values.movieService.enabled }}
+# =====================================================
+# MOVIE SERVICE - DEPLOYMENT
+# Movie Management & Catalog
+# =====================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movie-service
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: movie-service
+    {{- include "movie-booking.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.movieService.replicaCount }}
+  selector:
+    matchLabels:
+      app: movie-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: movie-service
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+    spec:
+      containers:
+      - name: movie-service
+        image: "{{ .Values.movieService.image.repository }}:{{ .Values.movieService.image.tag }}"
+        imagePullPolicy: {{ .Values.movieService.image.pullPolicy }}
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          value: {{ include "movie-booking.movieDatabaseUrl" . | quote }}
+        - name: REDIS_URL
+          value: "{{ include "movie-booking.redisUrl" . }}/1"
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "movie-booking.fullname" . }}-secrets
+              key: jwt-secret-key
+        - name: LOG_LEVEL
+          value: {{ .Values.movieService.env.LOG_LEVEL | default "INFO" | quote }}
+        resources:
+          {{- toYaml .Values.movieService.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: movie-service
+  namespace: {{ .Values.namespace }}
+spec:
+  type: {{ .Values.movieService.service.type }}
+  ports:
+  - port: {{ .Values.movieService.service.port }}
+    targetPort: 8000
+  selector:
+    app: movie-service
+{{- if .Values.movieService.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: movie-service-hpa
+  namespace: {{ .Values.namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: movie-service
+  minReplicas: {{ .Values.movieService.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.movieService.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.movieService.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}

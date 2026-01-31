@@ -1,0 +1,107 @@
+╔═══════════════════════════════════════════════════════════════════╗
+║           🎬 MOVIE BOOKING SYSTEM - DEPLOYED! 🎬                   ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+🎉 Congratulations! Your Movie Booking System has been deployed.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 DEPLOYMENT INFO:
+   Release:    {{ .Release.Name }}
+   Namespace:  {{ .Values.namespace }}
+   Revision:   {{ .Release.Revision }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔗 ACCESS THE APPLICATION:
+
+{{- if eq .Values.apiGateway.service.type "NodePort" }}
+   For NodePort access:
+   
+   # Get the NodePort
+   export NODE_PORT=$(kubectl get svc api-gateway -n {{ .Values.namespace }} -o jsonpath='{.spec.ports[0].nodePort}')
+   
+   # For minikube:
+   export NODE_IP=$(minikube ip)
+   echo "API Gateway: http://$NODE_IP:$NODE_PORT"
+   
+   # For kind/Docker Desktop:
+   echo "API Gateway: http://localhost:$NODE_PORT"
+{{- else if eq .Values.apiGateway.service.type "LoadBalancer" }}
+   For LoadBalancer access:
+   
+   # Wait for external IP
+   kubectl get svc api-gateway -n {{ .Values.namespace }} -w
+   
+   # Get the external IP
+   export SERVICE_IP=$(kubectl get svc api-gateway -n {{ .Values.namespace }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+   echo "API Gateway: http://$SERVICE_IP"
+{{- else }}
+   For ClusterIP access (port-forward):
+   
+   kubectl port-forward svc/api-gateway 8080:80 -n {{ .Values.namespace }}
+   echo "API Gateway: http://localhost:8080"
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📡 API ENDPOINTS:
+
+   Auth Service:
+   • POST /api/v1/auth/register    - Register new user
+   • POST /api/v1/auth/login       - Login
+   • GET  /api/v1/users/me         - Get current user
+
+   Movie Service:
+   • GET  /api/v1/movies/          - List movies
+   • GET  /api/v1/movies/{id}      - Get movie details
+   • GET  /api/v1/showtimes/       - List showtimes
+
+   Booking Service:
+   • POST /api/v1/bookings/        - Create booking
+   • GET  /api/v1/bookings/{id}    - Get booking details
+   • GET  /api/v1/seats/           - Get available seats
+
+   Payment Service:
+   • POST /api/v1/payments/        - Process payment
+   • GET  /api/v1/payments/{id}    - Get payment status
+
+   Notification Service:
+   • GET  /api/v1/notifications/   - List notifications
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔍 USEFUL COMMANDS:
+
+   # View all pods
+   kubectl get pods -n {{ .Values.namespace }}
+
+   # View logs
+   kubectl logs -f -l app=auth-service -n {{ .Values.namespace }}
+
+   # View services
+   kubectl get svc -n {{ .Values.namespace }}
+
+   # Access RabbitMQ Management UI
+   kubectl port-forward svc/rabbitmq-service 15672:15672 -n {{ .Values.namespace }}
+   # Then open: http://localhost:15672
+
+   # Scale a deployment
+   kubectl scale deployment auth-service --replicas=3 -n {{ .Values.namespace }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️  NOTE: This is a {{ .Values.namespace | contains "local" | ternary "LOCAL DEVELOPMENT" "PRODUCTION" }} deployment.
+{{- if .Values.namespace | contains "local" }}
+   • Using development credentials (NOT for production!)
+   • Autoscaling is disabled
+   • Resources are minimized
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 Documentation: See docs/K8S_LOCAL_DEPLOYMENT.md for detailed guide.
+
+╔═══════════════════════════════════════════════════════════════════╗
+║                    Happy Movie Booking! 🍿                         ║
+╚═══════════════════════════════════════════════════════════════════╝

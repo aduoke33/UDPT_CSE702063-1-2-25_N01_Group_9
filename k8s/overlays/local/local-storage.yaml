@@ -1,0 +1,165 @@
+# =====================================================
+# LOCAL STORAGE CONFIGURATION
+# Movie Booking System - Storage for Local K8s
+# Compatible with: minikube, kind, Docker Desktop
+# =====================================================
+
+# StorageClass for local development
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+  labels:
+    app: movie-booking
+    environment: local
+provisioner: k8s.io/minikube-hostpath
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+allowVolumeExpansion: true
+---
+# Default StorageClass for standard provisioner
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard
+  labels:
+    app: movie-booking
+    environment: local
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: k8s.io/minikube-hostpath
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+---
+# Persistent Volume for Auth DB
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv-auth
+  labels:
+    app: movie-booking
+    service: auth
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage
+  hostPath:
+    path: /data/postgres-auth
+    type: DirectoryOrCreate
+---
+# Persistent Volume for Movie DB
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv-movie
+  labels:
+    app: movie-booking
+    service: movie
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage
+  hostPath:
+    path: /data/postgres-movie
+    type: DirectoryOrCreate
+---
+# Persistent Volume for Booking DB
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv-booking
+  labels:
+    app: movie-booking
+    service: booking
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage
+  hostPath:
+    path: /data/postgres-booking
+    type: DirectoryOrCreate
+---
+# Persistent Volume for Payment DB
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv-payment
+  labels:
+    app: movie-booking
+    service: payment
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage
+  hostPath:
+    path: /data/postgres-payment
+    type: DirectoryOrCreate
+---
+# Persistent Volume for Notification DB
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv-notification
+  labels:
+    app: movie-booking
+    service: notification
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage
+  hostPath:
+    path: /data/postgres-notification
+    type: DirectoryOrCreate
+---
+# Persistent Volume for Redis
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv-redis
+  labels:
+    app: movie-booking
+    service: redis
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage
+  hostPath:
+    path: /data/redis
+    type: DirectoryOrCreate
+---
+# Persistent Volume for RabbitMQ
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv-rabbitmq
+  labels:
+    app: movie-booking
+    service: rabbitmq
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local-storage
+  hostPath:
+    path: /data/rabbitmq
+    type: DirectoryOrCreate

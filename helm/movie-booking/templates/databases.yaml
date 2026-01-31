@@ -1,0 +1,349 @@
+# =====================================================
+# LOCAL DATABASE INFRASTRUCTURE
+# PostgreSQL databases for each service
+# =====================================================
+
+# Auth Database
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-auth
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: postgres-auth
+    tier: database
+    {{- include "movie-booking.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-auth
+  template:
+    metadata:
+      labels:
+        app: postgres-auth
+        tier: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: {{ .Values.localDatabase.auth.user | default "auth_user" | quote }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.localDatabase.auth.password | default "auth_local_123" | quote }}
+        - name: POSTGRES_DB
+          value: {{ .Values.localDatabase.auth.database | default "auth_db" | quote }}
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-auth-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "{{ .Values.localDatabase.auth.user | default "auth_user" }}"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-auth-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-auth-service
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres-auth
+
+# Movie Database
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-movie
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: postgres-movie
+    tier: database
+    {{- include "movie-booking.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-movie
+  template:
+    metadata:
+      labels:
+        app: postgres-movie
+        tier: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: {{ .Values.localDatabase.movie.user | default "movie_user" | quote }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.localDatabase.movie.password | default "movie_local_123" | quote }}
+        - name: POSTGRES_DB
+          value: {{ .Values.localDatabase.movie.database | default "movies_db" | quote }}
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-movie-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "{{ .Values.localDatabase.movie.user | default "movie_user" }}"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-movie-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-movie-service
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres-movie
+
+# Booking Database
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-booking
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: postgres-booking
+    tier: database
+    {{- include "movie-booking.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-booking
+  template:
+    metadata:
+      labels:
+        app: postgres-booking
+        tier: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: {{ .Values.localDatabase.booking.user | default "booking_user" | quote }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.localDatabase.booking.password | default "booking_local_123" | quote }}
+        - name: POSTGRES_DB
+          value: {{ .Values.localDatabase.booking.database | default "bookings_db" | quote }}
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-booking-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "{{ .Values.localDatabase.booking.user | default "booking_user" }}"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-booking-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-booking-service
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres-booking
+
+# Payment Database
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-payment
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: postgres-payment
+    tier: database
+    {{- include "movie-booking.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-payment
+  template:
+    metadata:
+      labels:
+        app: postgres-payment
+        tier: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: {{ .Values.localDatabase.payment.user | default "payment_user" | quote }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.localDatabase.payment.password | default "payment_local_123" | quote }}
+        - name: POSTGRES_DB
+          value: {{ .Values.localDatabase.payment.database | default "payments_db" | quote }}
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-payment-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "{{ .Values.localDatabase.payment.user | default "payment_user" }}"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-payment-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-payment-service
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres-payment
+
+# Notification Database
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-notification
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: postgres-notification
+    tier: database
+    {{- include "movie-booking.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-notification
+  template:
+    metadata:
+      labels:
+        app: postgres-notification
+        tier: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_USER
+          value: {{ .Values.localDatabase.notification.user | default "notification_user" | quote }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.localDatabase.notification.password | default "notification_local_123" | quote }}
+        - name: POSTGRES_DB
+          value: {{ .Values.localDatabase.notification.database | default "notifications_db" | quote }}
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-notification-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "{{ .Values.localDatabase.notification.user | default "notification_user" }}"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-notification-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-notification-service
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: postgres-notification

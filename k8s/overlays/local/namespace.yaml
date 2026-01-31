@@ -1,0 +1,44 @@
+# =====================================================
+# LOCAL NAMESPACE
+# Movie Booking System - Local Development
+# =====================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: movie-booking-local
+  labels:
+    app: movie-booking
+    environment: local
+---
+# Resource Quotas for Local Namespace (smaller limits)
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: movie-booking-local-quota
+  namespace: movie-booking-local
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: "8Gi"
+    limits.cpu: "8"
+    limits.memory: "16Gi"
+    pods: "30"
+    services: "15"
+    configmaps: "20"
+    secrets: "20"
+---
+# LimitRange for Local Development
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: movie-booking-local-limits
+  namespace: movie-booking-local
+spec:
+  limits:
+  - default:
+      cpu: "250m"
+      memory: "256Mi"
+    defaultRequest:
+      cpu: "50m"
+      memory: "64Mi"
+    type: Container

@@ -144,7 +144,8 @@ TECHNICAL_ARCHITECTURE.md
 SYSTEM_ARCHITECTURE_DETAILED.md
 KUBERNETES_ARCHITECTURE.md
 CICD_PIPELINE.md
-
+activitydragramsignup.xml
+ARCHITECTURE.md
 # Sensitive or local deployment files (do not publish)
 docker-compose.yml
 docker-compose.dev.yml

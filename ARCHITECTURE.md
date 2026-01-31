@@ -797,14 +797,14 @@ The project uses GitHub Actions for continuous integration and continuous deploy
 
 ### Pipeline Stages Detail
 
-| Stage | Name                    | Description                              | Dependencies |
-|-------|-------------------------|------------------------------------------|--------------|
-| 1     | Code Quality Check      | Run Black, isort, Flake8, MyPy           | None         |
-| 2     | Build Backend Services  | Build & push 5 microservice images       | Stage 1      |
-| 3     | Build Infrastructure    | Build & push gateway & frontend images   | Stage 1      |
-| 4     | Validate K8s Manifests  | Dry-run kubectl on all YAML files        | Stage 1      |
-| 5     | Smoke Test              | Run integration tests with test DB/Redis | Stage 2, 3   |
-| 6     | Notify Success          | Report pipeline completion status        | Stage 2-5    |
+| Stage | Name                   | Description                              | Dependencies |
+| ----- | ---------------------- | ---------------------------------------- | ------------ |
+| 1     | Code Quality Check     | Run Black, isort, Flake8, MyPy           | None         |
+| 2     | Build Backend Services | Build & push 5 microservice images       | Stage 1      |
+| 3     | Build Infrastructure   | Build & push gateway & frontend images   | Stage 1      |
+| 4     | Validate K8s Manifests | Dry-run kubectl on all YAML files        | Stage 1      |
+| 5     | Smoke Test             | Run integration tests with test DB/Redis | Stage 2, 3   |
+| 6     | Notify Success         | Report pipeline completion status        | Stage 2-5    |
 
 ### Container Registry
 
@@ -990,18 +990,18 @@ ghcr.io/<owner>/movie-booking/
 
 ### Environment Comparison
 
-| Aspect              | Local (Docker Compose)          | Production (Kubernetes)              |
-|---------------------|---------------------------------|--------------------------------------|
-| Orchestration       | Docker Compose                  | Kubernetes                           |
-| Scaling             | Manual (docker-compose scale)   | Auto (HPA based on CPU/Memory)       |
-| Load Balancing      | NGINX (single instance)         | Cloud LB + Ingress Controller        |
-| Service Discovery   | Docker DNS                      | Kubernetes DNS (CoreDNS)             |
-| Storage             | Docker Volumes                  | Persistent Volume Claims (PVC)       |
-| Secrets             | Environment variables           | Kubernetes Secrets (encrypted)       |
-| Monitoring          | Prometheus + Grafana            | Prometheus Operator + Grafana        |
-| High Availability   | No (single instance)            | Yes (multi-replica + pod anti-affinity)|
-| TLS/SSL             | Optional (self-signed)          | cert-manager (Let's Encrypt)         |
-| Network Policy      | None                            | Calico/Cilium NetworkPolicy          |
+| Aspect            | Local (Docker Compose)        | Production (Kubernetes)                 |
+| ----------------- | ----------------------------- | --------------------------------------- |
+| Orchestration     | Docker Compose                | Kubernetes                              |
+| Scaling           | Manual (docker-compose scale) | Auto (HPA based on CPU/Memory)          |
+| Load Balancing    | NGINX (single instance)       | Cloud LB + Ingress Controller           |
+| Service Discovery | Docker DNS                    | Kubernetes DNS (CoreDNS)                |
+| Storage           | Docker Volumes                | Persistent Volume Claims (PVC)          |
+| Secrets           | Environment variables         | Kubernetes Secrets (encrypted)          |
+| Monitoring        | Prometheus + Grafana          | Prometheus Operator + Grafana           |
+| High Availability | No (single instance)          | Yes (multi-replica + pod anti-affinity) |
+| TLS/SSL           | Optional (self-signed)        | cert-manager (Let's Encrypt)            |
+| Network Policy    | None                          | Calico/Cilium NetworkPolicy             |
 
 ---
 

@@ -312,23 +312,24 @@ services:
       dockerfile: Dockerfile
     container_name: movie_booking_frontend
     environment:
+      APP_NAME: CineBook
       APP_ENV: local
       APP_DEBUG: "true"
-      APP_URL: http://localhost:8000
-      API_GATEWAY_URL: http://nginx
-      DB_CONNECTION: pgsql
-      DB_HOST: postgres-auth
-      DB_PORT: 5432
-      DB_DATABASE: auth_db
-      DB_USERNAME: auth_user
-      DB_PASSWORD: auth_password123
+      APP_URL: http://localhost:8080
+      API_GATEWAY_URL: http://nginx:80
+      SESSION_DRIVER: file
+      CACHE_DRIVER: file
+      LOG_CHANNEL: stack
     ports:
-      - "8000:8000"
+      - "8080:80"
     volumes:
-      - ./frontend:/var/www/html
+      - frontend_storage:/var/www/html/storage
     depends_on:
-      - postgres-auth
       - nginx
+      - auth-service
+      - movie-service
+      - booking-service
+      - payment-service
     networks:
       - movie_booking_network
     restart: unless-stopped
@@ -384,3 +385,4 @@ volumes:
   rabbitmq_data:
   prometheus_data:
   grafana_data:
+  frontend_storage:

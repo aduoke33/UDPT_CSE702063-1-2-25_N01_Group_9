@@ -34,7 +34,7 @@ spec:
         - containerPort: 8000
         env:
         - name: DATABASE_URL
-          value: {{ include "movie-booking.databaseUrl" . | quote }}
+          value: {{ include "movie-booking.authDatabaseUrl" . | quote }}
         - name: REDIS_URL
           value: "{{ include "movie-booking.redisUrl" . }}/0"
         - name: SECRET_KEY
@@ -46,6 +46,8 @@ spec:
           value: {{ .Values.authService.env.ALGORITHM | quote }}
         - name: ACCESS_TOKEN_EXPIRE_MINUTES
           value: {{ .Values.authService.env.ACCESS_TOKEN_EXPIRE_MINUTES | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.authService.env.LOG_LEVEL | default "INFO" | quote }}
         resources:
           {{- toYaml .Values.authService.resources | nindent 10 }}
         livenessProbe:

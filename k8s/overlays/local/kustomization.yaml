@@ -1,0 +1,139 @@
+# =====================================================
+# KUSTOMIZATION - LOCAL DEVELOPMENT OVERLAY
+# Movie Booking System - Local K8s Environment
+# Optimized for: minikube, kind, Docker Desktop K8s
+# =====================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: movie-booking-local
+
+resources:
+  - ../../base
+  - namespace.yaml
+  - local-storage.yaml
+  - local-secrets.yaml
+
+namePrefix: local-
+
+labels:
+  - pairs:
+      environment: local
+      app.kubernetes.io/part-of: movie-booking
+
+# Reduce replicas for local development
+replicas:
+  - name: auth-service
+    count: 1
+  - name: movie-service
+    count: 1
+  - name: booking-service
+    count: 1
+  - name: payment-service
+    count: 1
+  - name: notification-service
+    count: 1
+  - name: api-gateway
+    count: 1
+  - name: postgres-auth
+    count: 1
+  - name: postgres-movie
+    count: 1
+  - name: postgres-booking
+    count: 1
+  - name: postgres-payment
+    count: 1
+  - name: postgres-notification
+    count: 1
+  - name: redis
+    count: 1
+  - name: rabbitmq
+    count: 1
+
+# Use local images (not pushed to registry)
+images:
+  - name: movie-booking/auth-service
+    newName: movie-booking/auth-service
+    newTag: local
+  - name: movie-booking/movie-service
+    newName: movie-booking/movie-service
+    newTag: local
+  - name: movie-booking/booking-service
+    newName: movie-booking/booking-service
+    newTag: local
+  - name: movie-booking/payment-service
+    newName: movie-booking/payment-service
+    newTag: local
+  - name: movie-booking/notification-service
+    newName: movie-booking/notification-service
+    newTag: local
+  - name: movie-booking/frontend
+    newName: movie-booking/frontend
+    newTag: local
+  - name: movie-booking/gateway
+    newName: movie-booking/gateway
+    newTag: local
+
+# ConfigMap overrides for local environment
+configMapGenerator:
+  - name: local-config
+    literals:
+      - LOG_LEVEL=DEBUG
+      - ENVIRONMENT=local
+      - DEBUG=true
+      - PROMETHEUS_ENABLED=false
+      - TRACING_ENABLED=false
+
+# Patches for local development (reduce resources)
+patches:
+  # Reduce resource requests for all services
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 128Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 50m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 256Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: 250m
+    target:
+      kind: Deployment
+      labelSelector: "tier=backend"
+  
+  # Change image pull policy to Never for local
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: Never
+    target:
+      kind: Deployment
+  
+  # Change service type from LoadBalancer to NodePort
+  - patch: |-
+      - op: replace
+        path: /spec/type
+        value: NodePort
+    target:
+      kind: Service
+      name: api-gateway
+
+  # Disable HPA for local development
+  - patch: |-
+      - op: add
+        path: /metadata/annotations/autoscaling.kubernetes.io~1disabled
+        value: "true"
+    target:
+      kind: HorizontalPodAutoscaler
+
+  # Use local storage class for PVCs
+  - patch: |-
+      - op: replace
+        path: /spec/storageClassName
+        value: local-storage
+    target:
+      kind: PersistentVolumeClaim

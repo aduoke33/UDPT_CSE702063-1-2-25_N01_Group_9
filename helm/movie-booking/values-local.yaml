@@ -1,0 +1,234 @@
+# =====================================================
+# HELM VALUES - LOCAL DEVELOPMENT
+# Movie Booking System - Optimized for Local K8s
+# Use: helm install movie-booking ./helm/movie-booking -f helm/movie-booking/values-local.yaml
+# =====================================================
+
+# Global settings for local development
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: "standard"
+
+# Namespace
+namespace: movie-booking-local
+
+# =====================================================
+# AUTH SERVICE (Local)
+# =====================================================
+authService:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: movie-booking/auth-service
+    tag: local
+    pullPolicy: Never
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 2
+    targetCPUUtilizationPercentage: 80
+  env:
+    ALGORITHM: "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+    LOG_LEVEL: "DEBUG"
+
+# =====================================================
+# MOVIE SERVICE (Local)
+# =====================================================
+movieService:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: movie-booking/movie-service
+    tag: local
+    pullPolicy: Never
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+
+# =====================================================
+# BOOKING SERVICE (Local)
+# =====================================================
+bookingService:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: movie-booking/booking-service
+    tag: local
+    pullPolicy: Never
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+
+# =====================================================
+# PAYMENT SERVICE (Local)
+# =====================================================
+paymentService:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: movie-booking/payment-service
+    tag: local
+    pullPolicy: Never
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+
+# =====================================================
+# NOTIFICATION SERVICE (Local)
+# =====================================================
+notificationService:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: movie-booking/notification-service
+    tag: local
+    pullPolicy: Never
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+
+# =====================================================
+# API GATEWAY - Local (NodePort for access)
+# =====================================================
+apiGateway:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: nginx
+    tag: alpine
+    pullPolicy: IfNotPresent
+  service:
+    type: NodePort
+    port: 80
+    nodePort: 30080
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# =====================================================
+# INGRESS (Disabled for local - use NodePort)
+# =====================================================
+ingress:
+  enabled: false
+
+# =====================================================
+# DATABASE - POSTGRESQL (Local - Built-in)
+# =====================================================
+postgresql:
+  enabled: false  # We use built-in PostgreSQL deployments
+  
+# =====================================================
+# CACHE - REDIS (Local)
+# =====================================================
+redis:
+  enabled: false  # We use built-in Redis deployment
+  
+# =====================================================
+# MESSAGE QUEUE - RABBITMQ (Local)
+# =====================================================
+rabbitmq:
+  enabled: false  # We use built-in RabbitMQ deployment
+
+# =====================================================
+# MONITORING (Disabled for local to save resources)
+# =====================================================
+monitoring:
+  prometheus:
+    enabled: false
+  grafana:
+    enabled: false
+
+# =====================================================
+# LOCAL DEVELOPMENT SECRETS
+# =====================================================
+secrets:
+  jwtSecretKey: "local_dev_jwt_secret_key_not_for_production"
+  smtp:
+    host: "mailhog"
+    port: "1025"
+    user: ""
+    password: ""
+
+# =====================================================
+# LOCAL DATABASE CONFIGURATION
+# =====================================================
+localDatabase:
+  auth:
+    user: "auth_user"
+    password: "auth_local_123"
+    database: "auth_db"
+  movie:
+    user: "movie_user"
+    password: "movie_local_123"
+    database: "movies_db"
+  booking:
+    user: "booking_user"
+    password: "booking_local_123"
+    database: "bookings_db"
+  payment:
+    user: "payment_user"
+    password: "payment_local_123"
+    database: "payments_db"
+  notification:
+    user: "notification_user"
+    password: "notification_local_123"
+    database: "notifications_db"
+
+localRedis:
+  password: "redis_local_123"
+
+localRabbitmq:
+  user: "local_admin"
+  password: "rabbitmq_local_123"
