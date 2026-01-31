@@ -324,12 +324,12 @@ async def health_check():
 async def get_movies(
     q: Optional[str] = None,
     genre: Optional[str] = None,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     from sqlalchemy import select, or_
 
     query = select(Movie).filter(Movie.is_active.is_(True))
-    
+
     # Search by title, director, or cast
     if q:
         search_term = f"%{q}%"
@@ -338,14 +338,14 @@ async def get_movies(
                 Movie.title.ilike(search_term),
                 Movie.director.ilike(search_term),
                 Movie.cast.ilike(search_term),
-                Movie.description.ilike(search_term)
+                Movie.description.ilike(search_term),
             )
         )
-    
+
     # Filter by genre
     if genre:
         query = query.filter(Movie.genre.ilike(f"%{genre}%"))
-    
+
     result = await db.execute(query)
     movies = result.scalars().all()
     return movies
