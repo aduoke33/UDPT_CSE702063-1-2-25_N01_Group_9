@@ -326,7 +326,7 @@ async def get_movies(
     genre: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy import select, or_
+    from sqlalchemy import or_, select
 
     query = select(Movie).filter(Movie.is_active.is_(True))
 
