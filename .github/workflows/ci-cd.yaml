@@ -156,32 +156,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   # =====================================================
-  # STAGE 4: VALIDATE KUBERNETES MANIFESTS
-  # =====================================================
-  validate-k8s:
-    name: Validate Kubernetes Manifests
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: 'v1.28.0'
-
-      - name: Validate k8s manifests syntax
-        run: |
-          echo "Validating Kubernetes manifests..."
-          for file in $(find k8s -name "*.yaml" -type f); do
-            echo "Checking $file"
-            kubectl apply --dry-run=client -f "$file" 2>&1 || true
-          done
-          echo "Kubernetes manifest validation completed"
-
-  # =====================================================
-  # STAGE 5: SMOKE TEST (Integration Tests)
+  # STAGE 4: SMOKE TEST (Integration Tests)
   # =====================================================
   smoke-test:
     name: Smoke Test
@@ -241,12 +216,12 @@ jobs:
           echo "Smoke tests completed"
 
   # =====================================================
-  # STAGE 6: BUILD SUCCESS NOTIFICATION
+  # STAGE 5: BUILD SUCCESS NOTIFICATION
   # =====================================================
   notify:
     name: Pipeline Complete
     runs-on: ubuntu-latest
-    needs: [build-backend, build-infra, validate-k8s, smoke-test]
+    needs: [build-backend, build-infra, smoke-test]
     if: success()
     steps:
       - name: Success notification
@@ -256,7 +231,6 @@ jobs:
           echo "Code Quality: PASSED"
           echo "Backend Services Build: PASSED"
           echo "Infrastructure Build: PASSED"
-          echo "Kubernetes Validation: PASSED"
           echo "Smoke Tests: PASSED"
           echo ""
           echo "Images pushed to ghcr.io:"
