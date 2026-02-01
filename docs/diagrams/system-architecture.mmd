@@ -1,0 +1,118 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#4f46e5', 'primaryTextColor': '#fff', 'primaryBorderColor': '#4338ca', 'lineColor': '#6366f1', 'secondaryColor': '#f0abfc', 'tertiaryColor': '#fef3c7'}}}%%
+
+flowchart TB
+    subgraph Client["CLIENT LAYER"]
+        WEB["Web Browser<br/>(Laravel Frontend)"]
+        MOBILE["Mobile App"]
+        API_CLIENT["API Client"]
+    end
+
+    subgraph Gateway["API GATEWAY LAYER"]
+        NGINX["NGINX API Gateway<br/>Port: 80/443<br/>---<br/>SSL Termination<br/>Rate Limiting<br/>Load Balancing<br/>Request Routing"]
+    end
+
+    subgraph Services["MICROSERVICES LAYER"]
+        subgraph AuthSvc["Auth Service"]
+            AUTH["FastAPI<br/>Port: 8001<br/>---<br/>JWT Authentication<br/>User Management<br/>Password Hashing<br/>Token Verification"]
+        end
+
+        subgraph MovieSvc["Movie Service"]
+            MOVIE["FastAPI<br/>Port: 8002<br/>---<br/>Movie Catalog<br/>Showtimes<br/>Theaters<br/>Seat Availability"]
+        end
+
+        subgraph BookingSvc["Booking Service"]
+            BOOKING["FastAPI<br/>Port: 8003<br/>---<br/>Seat Reservation<br/>Distributed Locking<br/>Booking Management<br/>Circuit Breaker"]
+        end
+
+        subgraph PaymentSvc["Payment Service"]
+            PAYMENT["FastAPI<br/>Port: 8004<br/>---<br/>Payment Processing<br/>Idempotency<br/>Refunds<br/>Transaction History"]
+        end
+
+        subgraph NotifySvc["Notification Service"]
+            NOTIFY["FastAPI<br/>Port: 8005<br/>---<br/>Email Notifications<br/>SMS Alerts<br/>RabbitMQ Consumer<br/>Async Processing"]
+        end
+    end
+
+    subgraph Data["DATA LAYER"]
+        subgraph Databases["PostgreSQL Databases (Database-per-Service)"]
+            DB_AUTH[("auth_db<br/>Port: 5433<br/>users table")]
+            DB_MOVIE[("movies_db<br/>Port: 5434<br/>movies, theaters,<br/>showtimes, seats")]
+            DB_BOOKING[("bookings_db<br/>Port: 5435<br/>bookings,<br/>booking_seats")]
+            DB_PAYMENT[("payments_db<br/>Port: 5436<br/>payments")]
+            DB_NOTIFY[("notifications_db<br/>Port: 5437<br/>notifications")]
+        end
+
+        subgraph Cache["Redis Cache"]
+            REDIS[("Redis<br/>Port: 6379<br/>---<br/>Session Cache<br/>Distributed Locks<br/>Idempotency Keys<br/>Movie Cache")]
+        end
+
+        subgraph MessageQueue["Message Queue"]
+            RABBITMQ[("RabbitMQ<br/>Port: 5672/15672<br/>---<br/>Async Messaging<br/>Event Publishing<br/>Notification Queue")]
+        end
+    end
+
+    subgraph Monitoring["MONITORING LAYER"]
+        PROMETHEUS["Prometheus<br/>Port: 9090<br/>Metrics Collection"]
+        GRAFANA["Grafana<br/>Port: 3000<br/>Dashboards"]
+    end
+
+    %% Client to Gateway
+    WEB -->|HTTPS| NGINX
+    MOBILE -->|HTTPS| NGINX
+    API_CLIENT -->|HTTPS| NGINX
+
+    %% Gateway to Services
+    NGINX -->|"/api/auth/*"| AUTH
+    NGINX -->|"/api/movies/*"| MOVIE
+    NGINX -->|"/api/bookings/*"| BOOKING
+    NGINX -->|"/api/payments/*"| PAYMENT
+    NGINX -->|"/api/notifications/*"| NOTIFY
+
+    %% Services to Databases
+    AUTH -->|asyncpg| DB_AUTH
+    MOVIE -->|asyncpg| DB_MOVIE
+    BOOKING -->|asyncpg| DB_BOOKING
+    PAYMENT -->|asyncpg| DB_PAYMENT
+    NOTIFY -->|asyncpg| DB_NOTIFY
+
+    %% Services to Redis
+    AUTH -.->|"Sessions"| REDIS
+    MOVIE -.->|"Movie Cache"| REDIS
+    BOOKING -.->|"Distributed Lock"| REDIS
+    PAYMENT -.->|"Idempotency"| REDIS
+
+    %% Services to RabbitMQ
+    PAYMENT -->|"payment.completed"| RABBITMQ
+    BOOKING -->|"booking.created"| RABBITMQ
+    RABBITMQ -->|"notifications"| NOTIFY
+
+    %% Service Communication
+    BOOKING -.->|"Verify Token"| AUTH
+    PAYMENT -.->|"Verify Token"| AUTH
+    BOOKING -.->|"Get Showtime"| MOVIE
+    PAYMENT -.->|"Update Status"| BOOKING
+
+    %% Monitoring
+    AUTH -.->|"/metrics"| PROMETHEUS
+    MOVIE -.->|"/metrics"| PROMETHEUS
+    BOOKING -.->|"/metrics"| PROMETHEUS
+    PAYMENT -.->|"/metrics"| PROMETHEUS
+    NOTIFY -.->|"/metrics"| PROMETHEUS
+    PROMETHEUS --> GRAFANA
+
+    %% Styling
+    classDef clientStyle fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+    classDef gatewayStyle fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
+    classDef serviceStyle fill:#dcfce7,stroke:#22c55e,stroke-width:2px
+    classDef dbStyle fill:#fce7f3,stroke:#ec4899,stroke-width:2px
+    classDef cacheStyle fill:#fee2e2,stroke:#ef4444,stroke-width:2px
+    classDef mqStyle fill:#f3e8ff,stroke:#a855f7,stroke-width:2px
+    classDef monitorStyle fill:#e0e7ff,stroke:#6366f1,stroke-width:2px
+
+    class WEB,MOBILE,API_CLIENT clientStyle
+    class NGINX gatewayStyle
+    class AUTH,MOVIE,BOOKING,PAYMENT,NOTIFY serviceStyle
+    class DB_AUTH,DB_MOVIE,DB_BOOKING,DB_PAYMENT,DB_NOTIFY dbStyle
+    class REDIS cacheStyle
+    class RABBITMQ mqStyle
+    class PROMETHEUS,GRAFANA monitorStyle

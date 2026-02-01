@@ -59,6 +59,7 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql+asyncpg://admin:admin123@postgres:5432/movie_booking"
 )
 REDIS_URL = os.getenv("REDIS_URL", "redis://:redis123@redis:6379/0")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://localhost:3000").split(",")
 
 # =====================================================
 # DATABASE SETUP
@@ -197,13 +198,13 @@ app.add_middleware(CorrelationIdMiddleware)
 # Prometheus instrumentation
 Instrumentator().instrument(app).expose(app)
 
-# CORS Middleware
+# CORS Middleware - Use environment variable for allowed origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Authorization", "Content-Type", "X-Correlation-ID"],
 )
 
 # Redis Client
@@ -370,9 +371,118 @@ async def verify_token(
         "user_id": str(user.id),
         "username": user.username,
         "email": user.email,
+        "full_name": user.full_name,
+        "phone_number": user.phone_number,
         "role": user.role,
         "is_active": user.is_active,
     }
+
+
+# =====================================================
+# PROFILE UPDATE SCHEMA
+# =====================================================
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    phone_number: Optional[str] = None
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+
+@app.put("/profile", response_model=UserResponse)
+async def update_profile(
+    profile_data: ProfileUpdate,
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update user profile"""
+    from sqlalchemy import select, update
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # Get user
+    result = await db.execute(select(User).filter(User.id == uuid.UUID(user_id)))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update fields
+    update_data = {}
+    if profile_data.full_name is not None:
+        update_data["full_name"] = profile_data.full_name
+    if profile_data.phone_number is not None:
+        update_data["phone_number"] = profile_data.phone_number
+
+    if update_data:
+        update_data["updated_at"] = datetime.utcnow()
+        await db.execute(
+            update(User).where(User.id == user.id).values(**update_data)
+        )
+        await db.commit()
+        await db.refresh(user)
+
+    logger.info(f"Profile updated for user: {user.username}")
+    return user
+
+
+@app.post("/change-password")
+async def change_password(
+    password_data: PasswordChange,
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+):
+    """Change user password"""
+    from sqlalchemy import select, update
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("user_id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # Get user
+    result = await db.execute(select(User).filter(User.id == uuid.UUID(user_id)))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Verify current password
+    if not verify_password(password_data.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    # Validate new password
+    if len(password_data.new_password) < 6:
+        raise HTTPException(
+            status_code=400, detail="New password must be at least 6 characters"
+        )
+
+    # Update password
+    new_hash = get_password_hash(password_data.new_password)
+    await db.execute(
+        update(User)
+        .where(User.id == user.id)
+        .values(password_hash=new_hash, updated_at=datetime.utcnow())
+    )
+    await db.commit()
+
+    # Invalidate all sessions
+    if redis_client:
+        await redis_client.delete(f"session:{user.id}")
+
+    logger.info(f"Password changed for user: {user.username}")
+    return {"message": "Password changed successfully"}
 
 
 @app.post("/logout")

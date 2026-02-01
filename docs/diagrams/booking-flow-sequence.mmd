@@ -1,0 +1,252 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'actorBkg': '#4f46e5', 'actorTextColor': '#fff', 'actorLineColor': '#4f46e5', 'signalColor': '#374151', 'signalTextColor': '#374151', 'noteBkgColor': '#fef3c7', 'noteTextColor': '#92400e'}}}%%
+
+sequenceDiagram
+    autonumber
+    
+    participant User as User<br/>(Browser)
+    participant FE as Frontend<br/>(Laravel)
+    participant GW as API Gateway<br/>(NGINX)
+    participant Auth as Auth Service<br/>(FastAPI)
+    participant Movie as Movie Service<br/>(FastAPI)
+    participant Booking as Booking Service<br/>(FastAPI)
+    participant Payment as Payment Service<br/>(FastAPI)
+    participant Notify as Notification<br/>(FastAPI)
+    participant Redis as Redis
+    participant RMQ as RabbitMQ
+    participant DB as PostgreSQL
+
+    %% ==========================================
+    %% PHASE 1: AUTHENTICATION
+    %% ==========================================
+    rect rgb(219, 234, 254)
+        Note over User,DB: PHASE 1: USER AUTHENTICATION
+        
+        User->>+FE: 1. Access Login Page
+        FE-->>User: Display Login Form
+        User->>FE: 2. Submit Credentials<br/>(email, password)
+        FE->>+GW: POST /api/auth/token
+        GW->>+Auth: Forward Request
+        Auth->>+DB: Query users table
+        DB-->>-Auth: User record
+        Auth->>Auth: Verify password (bcrypt)
+        Auth->>Auth: Generate JWT token
+        Auth->>+Redis: Store session
+        Redis-->>-Auth: OK
+        Auth-->>-GW: {access_token, user}
+        GW-->>-FE: 200 OK
+        FE->>FE: Store token in session
+        FE-->>-User: Redirect to Home
+    end
+
+    %% ==========================================
+    %% PHASE 2: BROWSE MOVIES
+    %% ==========================================
+    rect rgb(220, 252, 231)
+        Note over User,DB: PHASE 2: BROWSE MOVIES AND SHOWTIMES
+        
+        User->>+FE: 3. View Movies
+        FE->>+GW: GET /api/movies
+        GW->>+Movie: Forward Request
+        Movie->>+Redis: Check cache
+        alt Cache Hit
+            Redis-->>Movie: Cached movies
+        else Cache Miss
+            Redis-->>-Movie: null
+            Movie->>+DB: SELECT * FROM movies
+            DB-->>-Movie: Movies list
+            Movie->>+Redis: Cache movies (TTL: 5min)
+            Redis-->>-Movie: OK
+        end
+        Movie-->>-GW: Movies JSON
+        GW-->>-FE: 200 OK
+        FE-->>-User: Display Movie Grid
+        
+        User->>+FE: 4. Select Movie
+        FE->>+GW: GET /api/movies/{id}/showtimes
+        GW->>+Movie: Forward Request
+        Movie->>+DB: SELECT showtimes
+        DB-->>-Movie: Showtimes list
+        Movie-->>-GW: Showtimes JSON
+        GW-->>-FE: 200 OK
+        FE-->>-User: Display Showtimes
+    end
+
+    %% ==========================================
+    %% PHASE 3: SEAT SELECTION
+    %% ==========================================
+    rect rgb(254, 243, 199)
+        Note over User,DB: PHASE 3: SEAT SELECTION (Distributed Locking)
+        
+        User->>+FE: 5. Select Showtime
+        FE->>+GW: GET /api/showtimes/{id}/available-seats<br/>Authorization: Bearer {token}
+        GW->>+Movie: Forward Request
+        Movie->>+Redis: GET available_seats:{showtime_id}
+        alt Cache Exists
+            Redis-->>Movie: Cached availability
+        else No Cache
+            Redis-->>-Movie: null
+            Movie->>+DB: Query seats and booking_seats
+            DB-->>-Movie: Seat availability
+            Movie->>+Redis: Cache availability (TTL: 30s)
+            Redis-->>-Movie: OK
+        end
+        Movie-->>-GW: Available seats
+        GW-->>-FE: 200 OK
+        FE-->>-User: Display Seat Map
+        
+        User->>FE: 6. Select Seats (A1, A2, A3)
+        FE-->>User: Highlight selected seats
+    end
+
+    %% ==========================================
+    %% PHASE 4: BOOKING WITH DISTRIBUTED LOCK
+    %% ==========================================
+    rect rgb(252, 231, 243)
+        Note over User,DB: PHASE 4: CREATE BOOKING (Distributed Lock)
+        
+        User->>+FE: 7. Confirm Booking
+        FE->>+GW: POST /api/bookings/book<br/>{showtime_id, seat_ids: [A1, A2, A3]}
+        GW->>+Booking: Forward Request
+        
+        Note over Booking,Redis: Acquire Distributed Lock
+        Booking->>+Redis: SET lock:showtime:{id} NX EX 10
+        
+        alt Lock Acquired
+            Redis-->>Booking: OK
+            
+            Booking->>+Auth: GET /verify (Circuit Breaker)
+            Auth-->>-Booking: User verified
+            
+            Booking->>+Movie: GET /showtimes/{id}
+            Movie-->>-Booking: Showtime details + price
+            
+            Booking->>+Redis: Check seats availability
+            Redis-->>-Booking: Seats available
+            
+            Booking->>+DB: INSERT booking
+            DB-->>-Booking: Booking created
+            Booking->>+DB: INSERT booking_seats
+            DB-->>-Booking: Seats reserved
+            
+            Booking->>+Redis: Mark seats as reserved
+            Redis-->>-Booking: OK
+            
+            Booking->>+Redis: DEL lock:showtime:{id}
+            Redis-->>-Booking: Lock released
+            
+            Booking-->>-GW: {booking_id, booking_code, expires_at}
+            
+        else Lock Failed (Concurrent User)
+            Redis-->>-Booking: null (Lock held by other)
+            Booking-->>GW: 409 Conflict
+            GW-->>FE: "Seats being booked, retry"
+            FE-->>User: Show retry message
+        end
+        
+        GW-->>-FE: 201 Created
+        FE->>FE: Start 15min countdown
+        FE-->>-User: Show Booking Summary
+    end
+
+    %% ==========================================
+    %% PHASE 5: PAYMENT PROCESSING
+    %% ==========================================
+    rect rgb(243, 232, 255)
+        Note over User,DB: PHASE 5: PAYMENT PROCESSING (Idempotency)
+        
+        User->>+FE: 8. Proceed to Payment
+        FE-->>User: Display Payment Form
+        User->>FE: 9. Submit Payment<br/>(method: credit_card)
+        
+        FE->>FE: Generate idempotency_key
+        FE->>+GW: POST /api/payments/process<br/>{booking_id, amount, idempotency_key}
+        GW->>+Payment: Forward Request
+        
+        Note over Payment,Redis: Idempotency Check
+        Payment->>+Redis: GET idempotency:{key}
+        
+        alt Already Processed
+            Redis-->>Payment: payment_id
+            Payment->>+DB: SELECT payment
+            DB-->>-Payment: Existing payment
+            Payment-->>GW: 200 OK (Existing)
+        else New Payment
+            Redis-->>-Payment: null
+            
+            Payment->>+Auth: Verify token
+            Auth-->>-Payment: User verified
+            
+            Payment->>+Booking: GET /internal/bookings/{id}
+            Booking-->>-Payment: Booking details
+            
+            Payment->>Payment: Process payment<br/>(simulate gateway)
+            Payment->>Payment: Generate transaction_id
+            
+            Payment->>+DB: INSERT payment
+            DB-->>-Payment: Payment created
+            
+            Payment->>+Redis: SET idempotency:{key} (24h TTL)
+            Redis-->>-Payment: OK
+            
+            Payment->>+Booking: PATCH /internal/bookings/{id}<br/>{payment_status: paid, status: confirmed}
+            Booking->>+DB: UPDATE booking
+            DB-->>-Booking: Updated
+            Booking-->>-Payment: OK
+            
+            Note over Payment,RMQ: Async Notification
+            Payment->>+RMQ: Publish: payment.completed<br/>{user_id, booking_id, amount}
+            RMQ-->>-Payment: ACK
+            
+            Payment-->>-GW: 201 Created
+        end
+        
+        GW-->>-FE: Payment Response
+        FE-->>-User: Payment Success Page
+    end
+
+    %% ==========================================
+    %% PHASE 6: NOTIFICATION (ASYNC)
+    %% ==========================================
+    rect rgb(224, 231, 255)
+        Note over User,DB: PHASE 6: SEND NOTIFICATION (Async via RabbitMQ)
+        
+        RMQ->>+Notify: Consume: notifications queue
+        Notify->>Notify: Parse message
+        Notify->>+DB: INSERT notification
+        DB-->>-Notify: Saved
+        
+        alt Email Notification
+            Notify->>Notify: Send Email<br/>(SMTP Gateway)
+            Notify->>+DB: UPDATE status = 'sent'
+            DB-->>-Notify: OK
+        else SMS Notification
+            Notify->>Notify: Send SMS<br/>(SMS Gateway)
+            Notify->>+DB: UPDATE status = 'sent'
+            DB-->>-Notify: OK
+        end
+        
+        Notify-->>-RMQ: ACK message
+        
+        Note right of User: User receives<br/>confirmation email
+    end
+
+    %% ==========================================
+    %% FINAL: VIEW TICKET
+    %% ==========================================
+    rect rgb(219, 234, 254)
+        Note over User,DB: FINAL: VIEW E-TICKET
+        
+        User->>+FE: 10. View My Bookings
+        FE->>+GW: GET /api/bookings<br/>Authorization: Bearer {token}
+        GW->>+Booking: Forward Request
+        Booking->>+Auth: Verify token
+        Auth-->>-Booking: User info
+        Booking->>+DB: SELECT bookings WHERE user_id
+        DB-->>-Booking: User's bookings
+        Booking-->>-GW: Bookings list
+        GW-->>-FE: 200 OK
+        FE-->>-User: Display Booking History
+        
+        User->>+FE: View Ticket Detail
+        FE-->>-User: Display E-Ticket<br/>(QR Code, Booking Info)
+    end

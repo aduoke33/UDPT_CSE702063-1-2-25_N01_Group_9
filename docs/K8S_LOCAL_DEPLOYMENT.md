@@ -1,45 +1,45 @@
-# 🚀 Local Kubernetes Deployment Guide
+# Local Kubernetes Deployment Guide
 
-## Hướng dẫn triển khai Movie Booking System trên Kubernetes local
+## Huong dan trien khai Movie Booking System tren Kubernetes local
 
-Tài liệu này hướng dẫn chi tiết cách chạy hệ thống Movie Booking trên Kubernetes local sử dụng **minikube**, **kind**, hoặc **Docker Desktop**.
-
----
-
-## 📋 Mục lục
-
-1. [Yêu cầu hệ thống](#-yêu-cầu-hệ-thống)
-2. [Cài đặt công cụ](#-cài-đặt-công-cụ)
-3. [Cấu trúc dự án K8s](#-cấu-trúc-dự-án-k8s)
-4. [Hướng dẫn triển khai](#-hướng-dẫn-triển-khai)
-5. [Các phương pháp triển khai](#-các-phương-pháp-triển-khai)
-6. [Truy cập ứng dụng](#-truy-cập-ứng-dụng)
-7. [Giám sát và Debug](#-giám-sát-và-debug)
-8. [Troubleshooting](#-troubleshooting)
+Tai lieu nay huong dan chi tiet cach chay he thong Movie Booking tren Kubernetes local su dung **minikube**, **kind**, hoac **Docker Desktop**.
 
 ---
 
-## 💻 Yêu cầu hệ thống
+## Table of Contents
 
-### Phần cứng tối thiểu
+1. [System Requirements](#system-requirements)
+2. [Tool Installation](#tool-installation)
+3. [K8s Project Structure](#k8s-project-structure)
+4. [Deployment Guide](#deployment-guide)
+5. [Deployment Methods](#deployment-methods)
+6. [Accessing the Application](#accessing-the-application)
+7. [Monitoring and Debug](#monitoring-and-debug)
+8. [Troubleshooting](#troubleshooting)
+
+---
+
+## System Requirements
+
+### Minimum Hardware
 
 - **CPU**: 4 cores
-- **RAM**: 8 GB (khuyến nghị 16 GB)
-- **Disk**: 30 GB trống
+- **RAM**: 8 GB (recommended 16 GB)
+- **Disk**: 30 GB free
 
-### Phần mềm cần thiết
+### Required Software
 
-| Công cụ                          | Phiên bản | Bắt buộc       |
-| -------------------------------- | --------- | -------------- |
-| Docker                           | >= 20.10  | ✅             |
-| kubectl                          | >= 1.28   | ✅             |
-| minikube / kind / Docker Desktop | Latest    | ✅ (1 trong 3) |
-| Helm                             | >= 3.12   | Khuyến nghị    |
-| Skaffold                         | >= 2.0    | Tuỳ chọn       |
+| Tool                             | Version   | Required            |
+| -------------------------------- | --------- | ------------------- |
+| Docker                           | >= 20.10  | Yes                 |
+| kubectl                          | >= 1.28   | Yes                 |
+| minikube / kind / Docker Desktop | Latest    | Yes (one of three)  |
+| Helm                             | >= 3.12   | Recommended         |
+| Skaffold                         | >= 2.0    | Optional            |
 
 ---
 
-## 🔧 Cài đặt công cụ
+## Tool Installation
 
 ### Windows (PowerShell Admin)
 
@@ -99,50 +99,50 @@ sudo install skaffold /usr/local/bin/
 
 ---
 
-## 📁 Cấu trúc dự án K8s
+## K8s Project Structure
 
 ```
 k8s/
-├── namespace.yaml              # Namespace chính
-├── base/
-│   └── kustomization.yaml      # Base Kustomize config
-├── overlays/
-│   ├── local/                  # ⭐ Config cho local development
-│   │   ├── kustomization.yaml
-│   │   ├── namespace.yaml
-│   │   ├── local-storage.yaml
-│   │   └── local-secrets.yaml
-│   ├── staging/
-│   └── production/
-├── configmaps/
-├── secrets/
-├── database/
-├── services/
-├── gateway/
-├── autoscaling/
-└── monitoring/
++-- namespace.yaml              # Main namespace
++-- base/
+|   +-- kustomization.yaml      # Base Kustomize config
++-- overlays/
+|   +-- local/                  # Config for local development
+|   |   +-- kustomization.yaml
+|   |   +-- namespace.yaml
+|   |   +-- local-storage.yaml
+|   |   +-- local-secrets.yaml
+|   +-- staging/
+|   +-- production/
++-- configmaps/
++-- secrets/
++-- database/
++-- services/
++-- gateway/
++-- autoscaling/
++-- monitoring/
 
 helm/movie-booking/
-├── Chart.yaml
-├── values.yaml                 # Default values
-├── values-local.yaml           # ⭐ Local development values
-└── templates/
-    ├── _helpers.tpl
-    ├── auth-service.yaml
-    ├── movie-service.yaml
-    ├── booking-service.yaml
-    ├── payment-service.yaml
-    ├── notification-service.yaml
-    ├── api-gateway.yaml
-    ├── databases.yaml
-    ├── redis.yaml
-    ├── rabbitmq.yaml
-    └── secrets.yaml
++-- Chart.yaml
++-- values.yaml                 # Default values
++-- values-local.yaml           # Local development values
++-- templates/
+    +-- _helpers.tpl
+    +-- auth-service.yaml
+    +-- movie-service.yaml
+    +-- booking-service.yaml
+    +-- payment-service.yaml
+    +-- notification-service.yaml
+    +-- api-gateway.yaml
+    +-- databases.yaml
+    +-- redis.yaml
+    +-- rabbitmq.yaml
+    +-- secrets.yaml
 ```
 
 ---
 
-## 🚀 Hướng dẫn triển khai
+## Deployment Guide
 
 ### Sử dụng Script tự động (Khuyến nghị)
 
@@ -197,9 +197,9 @@ SERVICE=auth-service ./scripts/k8s-local.sh logs
 
 ---
 
-## 📦 Các phương pháp triển khai
+## Deployment Methods
 
-### 1️⃣ Helm (Khuyến nghị cho local)
+### Method 1: Helm (Recommended for local)
 
 ```bash
 # Khởi động minikube
@@ -226,20 +226,20 @@ helm upgrade --install movie-booking ./helm/movie-booking \
 kubectl get all -n movie-booking-local
 ```
 
-### 2️⃣ Kustomize
+### Method 2: Kustomize
 
 ```bash
 # Apply overlay local
 kubectl apply -k k8s/overlays/local
 
-# Xem trạng thái
+# View status
 kubectl get all -n movie-booking-local
 
-# Xoá
+# Delete
 kubectl delete -k k8s/overlays/local
 ```
 
-### 3️⃣ Skaffold (Hot-reload development)
+### Method 3: Skaffold (Hot-reload development)
 
 ```bash
 # Chế độ development với hot-reload
@@ -254,49 +254,49 @@ skaffold debug -p local
 
 ---
 
-## 🌐 Truy cập ứng dụng
+## Accessing the Application
 
 ### Minikube
 
 ```bash
-# Lấy IP của minikube
+# Get minikube IP
 minikube ip
-# Ví dụ: 192.168.49.2
+# Example: 192.168.49.2
 
-# Truy cập API Gateway
+# Access API Gateway
 # http://192.168.49.2:30080
 
-# Hoặc sử dụng port-forward
+# Or use port-forward
 kubectl port-forward svc/api-gateway 8080:80 -n movie-booking-local
 
-# Mở dashboard minikube
+# Open minikube dashboard
 minikube dashboard
 ```
 
 ### Kind / Docker Desktop
 
 ```bash
-# Truy cập trực tiếp
+# Direct access
 # http://localhost:30080
 
-# Hoặc port-forward
+# Or port-forward
 kubectl port-forward svc/api-gateway 8080:80 -n movie-booking-local
 ```
 
 ### API Endpoints
 
-| Service       | Endpoint                 | Mô tả              |
-| ------------- | ------------------------ | ------------------ |
-| Auth          | `/api/v1/auth/`          | Đăng ký, đăng nhập |
-| Users         | `/api/v1/users/`         | Quản lý người dùng |
-| Movies        | `/api/v1/movies/`        | Danh sách phim     |
-| Showtimes     | `/api/v1/showtimes/`     | Lịch chiếu         |
-| Bookings      | `/api/v1/bookings/`      | Đặt vé             |
-| Seats         | `/api/v1/seats/`         | Ghế ngồi           |
-| Payments      | `/api/v1/payments/`      | Thanh toán         |
-| Notifications | `/api/v1/notifications/` | Thông báo          |
+| Service       | Endpoint                 | Description         |
+| ------------- | ------------------------ | ------------------- |
+| Auth          | `/api/v1/auth/`          | Registration, login |
+| Users         | `/api/v1/users/`         | User management     |
+| Movies        | `/api/v1/movies/`        | Movie list          |
+| Showtimes     | `/api/v1/showtimes/`     | Showtimes           |
+| Bookings      | `/api/v1/bookings/`      | Ticket booking      |
+| Seats         | `/api/v1/seats/`         | Seat management     |
+| Payments      | `/api/v1/payments/`      | Payment processing  |
+| Notifications | `/api/v1/notifications/` | Notifications       |
 
-### Ví dụ test API
+### API Test Examples
 
 ```bash
 # Health check
@@ -318,9 +318,9 @@ curl http://localhost:8080/api/v1/movies/
 
 ---
 
-## 📊 Giám sát và Debug
+## Monitoring and Debug
 
-### Xem logs
+### View Logs
 
 ```bash
 # Logs của một service
@@ -378,9 +378,9 @@ kubectl port-forward svc/postgres-auth-service 5432:5432 -n movie-booking-local 
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
-### Lỗi thường gặp
+### Common Errors
 
 #### 1. Pod ở trạng thái Pending
 
@@ -457,7 +457,7 @@ docker rmi $(docker images -q "movie-booking/*")
 
 ---
 
-## 📝 Ghi chú quan trọng
+## Important Notes
 
 1. **Credentials local** (CHỈ dùng cho development):
    - PostgreSQL: `<service>_user` / `<service>_local_123`
@@ -476,7 +476,7 @@ docker rmi $(docker images -q "movie-booking/*")
 
 ---
 
-## 🔗 Tài liệu tham khảo
+## References
 
 - [Kubernetes Documentation](https://kubernetes.io/docs/)
 - [Minikube Documentation](https://minikube.sigs.k8s.io/docs/)

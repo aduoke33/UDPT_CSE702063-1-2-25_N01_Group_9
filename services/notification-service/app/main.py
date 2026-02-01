@@ -60,6 +60,7 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql+asyncpg://admin:admin123@postgres:5432/movie_booking"
 )
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://admin:admin123@rabbitmq:5672/")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://localhost:3000").split(",")
 
 # Database Setup
 engine = create_async_engine(DATABASE_URL, echo=True)
@@ -165,10 +166,10 @@ Instrumentator().instrument(app).expose(app)
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Authorization", "Content-Type", "X-Correlation-ID"],
 )
 
 rabbitmq_connection: Optional[aio_pika.Connection] = None
@@ -183,9 +184,9 @@ async def get_db():
 
 async def send_email_notification(notification_data: dict, db: AsyncSession):
     """Simulate sending email notification"""
-    print(f"📧 Sending EMAIL to user {notification_data['user_id']}")
-    print(f"   Subject: {notification_data.get('subject', 'No Subject')}")
-    print(f"   Message: {notification_data['message']}")
+    logger.info(f"Sending EMAIL to user {notification_data['user_id']}")
+    logger.info(f"Subject: {notification_data.get('subject', 'No Subject')}")
+    logger.debug(f"Message: {notification_data['message']}")
 
     # Save to database
     notification = Notification(
@@ -205,8 +206,8 @@ async def send_email_notification(notification_data: dict, db: AsyncSession):
 
 async def send_sms_notification(notification_data: dict, db: AsyncSession):
     """Simulate sending SMS notification"""
-    print(f"📱 Sending SMS to user {notification_data['user_id']}")
-    print(f"   Message: {notification_data['message']}")
+    logger.info(f"Sending SMS to user {notification_data['user_id']}")
+    logger.debug(f"Message: {notification_data['message']}")
 
     # Save to database
     notification = Notification(
@@ -237,10 +238,10 @@ async def process_notification(message: aio_pika.IncomingMessage):
                 elif notification_type == "sms":
                     await send_sms_notification(notification_data, db)
                 else:
-                    print(f"Unknown notification type: {notification_type}")
+                    logger.warning(f"Unknown notification type: {notification_type}")
 
             except Exception as e:
-                print(f"Error processing notification: {e}")
+                logger.error(f"Error processing notification: {e}", exc_info=True)
 
 
 async def consume_notifications():
@@ -248,7 +249,7 @@ async def consume_notifications():
     if rabbitmq_channel:
         queue = await rabbitmq_channel.declare_queue("notifications", durable=True)
         await queue.consume(process_notification)
-        print("🎯 Notification consumer started")
+        logger.info("Notification consumer started and listening for messages")
 
 
 @app.on_event("startup")
@@ -268,7 +269,7 @@ async def startup_event():
         consumer_task = asyncio.create_task(consume_notifications())
 
     except Exception as e:
-        print(f"RabbitMQ connection failed: {e}")
+        logger.error(f"RabbitMQ connection failed: {e}", exc_info=True)
 
 
 @app.on_event("shutdown")

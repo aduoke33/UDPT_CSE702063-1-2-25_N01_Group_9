@@ -239,10 +239,10 @@ default ✓ [======================================] 10 VUs  30s
 
 **Summary:**
 
-- ✅ Error Rate: 0.21% (< 1% threshold)
-- ✅ p95 Response Time: 112ms (< 200ms threshold)
-- ✅ Throughput: 27.2 req/s per user
-- ✅ All health endpoints responding
+- [PASS] Error Rate: 0.21% (< 1% threshold)
+- [PASS] p95 Response Time: 112ms (< 200ms threshold)
+- [PASS] Throughput: 27.2 req/s per user
+- [PASS] All health endpoints responding
 
 ---
 

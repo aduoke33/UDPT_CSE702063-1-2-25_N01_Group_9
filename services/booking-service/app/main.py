@@ -126,6 +126,7 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://:redis123@redis:6379/2")
 AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000")
 MOVIE_SERVICE_URL = os.getenv("MOVIE_SERVICE_URL", "http://movie-service:8000")
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "10.0"))
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://localhost:3000").split(",")
 
 # Database Setup with connection pooling
 engine = create_async_engine(
@@ -250,10 +251,10 @@ Instrumentator().instrument(app).expose(app)
 # CORS Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["Authorization", "Content-Type", "X-Correlation-ID"],
 )
 
 redis_client: Optional[redis.Redis] = None

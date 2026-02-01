@@ -168,7 +168,7 @@ Get-ChildItem *.sql | Sort-Object LastWriteTime -Descending
 .\scripts\db-manager.ps1 connect auth
 ```
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 ### Database không kết nối được
 
@@ -207,7 +207,7 @@ alembic upgrade head
 SELECT * FROM pg_stat_activity WHERE datname='auth_db';
 ```
 
-## 📈 Best Practices
+## Best Practices
 
 1. **Backup thường xuyên:** Backup trước mỗi deployment hoặc migration
 2. **Test restore:** Định kỳ test restore backup để đảm bảo backup hoạt động
@@ -215,22 +215,22 @@ SELECT * FROM pg_stat_activity WHERE datname='auth_db';
 4. **Isolate environments:** Không restore production backup vào development
 5. **Validate after changes:** Chạy `validate-databases.ps1` sau mỗi thay đổi infrastructure
 
-## 🔒 Security Notes
+## Security Notes
 
-⚠️ **QUAN TRỌNG:**
+**IMPORTANT:**
 
 - Scripts chứa credentials trong code (chỉ dùng cho development)
 - Trong production, sử dụng secrets management (Kubernetes Secrets, Azure Key Vault, AWS Secrets Manager)
 - Không commit backup files (đã có trong .gitignore)
 - Encrypt backups khi lưu trữ lâu dài
 
-## 📚 Thêm thông tin
+## Additional Information
 
 - [DATABASE_ARCHITECTURE.md](../DATABASE_ARCHITECTURE.md) - Chi tiết kiến trúc database-per-service
 - [docker-compose.yml](../docker-compose.yml) - Cấu hình Docker containers
 - [k8s/database/](../k8s/database/) - Kubernetes manifests cho production
 
-## 🆘 Support
+## Support
 
 Nếu gặp vấn đề:
 

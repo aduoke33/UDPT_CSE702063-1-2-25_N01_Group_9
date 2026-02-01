@@ -207,9 +207,16 @@ class AuthController extends Controller
             'phone' => 'required|string|max:20',
         ]);
 
-        // TODO: Implement profile update API call
-        
-        return back()->with('success', 'Cập nhật thông tin thành công!');
+        $result = $this->authService->updateProfile([
+            'full_name' => $request->input('name'),
+            'phone_number' => $request->input('phone'),
+        ]);
+
+        if ($result['success']) {
+            return back()->with('success', 'Cập nhật thông tin thành công!');
+        }
+
+        return back()->withErrors(['error' => $result['message'] ?? 'Cập nhật thất bại. Vui lòng thử lại.']);
     }
 
     /**
@@ -229,19 +236,22 @@ class AuthController extends Controller
             return back()->withErrors(['error' => 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.']);
         }
 
-        // Verify current password by re-authenticating
-        $loginResult = $this->authService->login(
-            $user['email'],
-            $request->input('current_password')
+        // Call API to change password
+        $result = $this->authService->changePassword(
+            $request->input('current_password'),
+            $request->input('new_password')
         );
 
-        if (!$loginResult['success']) {
+        if ($result['success']) {
+            return back()->with('success', 'Đổi mật khẩu thành công!');
+        }
+
+        // Handle specific error messages
+        $errorMessage = $result['message'] ?? 'Đổi mật khẩu thất bại.';
+        if (stripos($errorMessage, 'incorrect') !== false || stripos($errorMessage, 'invalid') !== false) {
             return back()->withErrors(['current_password' => 'Mật khẩu hiện tại không chính xác.']);
         }
 
-        // TODO: Call API to change password when available
-        // For now, just show success message as password change API may not be implemented
-        
-        return back()->with('success', 'Đổi mật khẩu thành công!');
+        return back()->withErrors(['error' => $errorMessage]);
     }
 }

@@ -21,6 +21,8 @@ return [
             'logout' => '/api/auth/logout',
             'me' => '/api/auth/verify',
             'refresh' => '/api/auth/refresh',
+            'update_profile' => '/api/auth/profile',
+            'change_password' => '/api/auth/change-password',
         ],
         'movies' => [
             'list' => '/api/movies/movies',
@@ -40,11 +42,11 @@ return [
             'seats' => '/api/movies/seats/{theater_id}',
         ],
         'bookings' => [
-            'create' => '/api/bookings/bookings',
+            'create' => '/api/bookings/book',
             'list' => '/api/bookings/bookings',
             'detail' => '/api/bookings/bookings/{id}',
             'cancel' => '/api/bookings/bookings/{id}/cancel',
-            'my_bookings' => '/api/bookings/my-bookings',
+            'my_bookings' => '/api/bookings/bookings',
             'hold_seats' => '/api/bookings/seats/hold',
             'release_seats' => '/api/bookings/seats/release',
             'confirm' => '/api/bookings/bookings/{id}/confirm',
@@ -55,12 +57,12 @@ return [
             'unlock' => '/api/bookings/seats/unlock',
         ],
         'payments' => [
-            'create' => '/api/payments/payments',
+            'create' => '/api/payments/process',
             'detail' => '/api/payments/payments/{id}',
-            'process' => '/api/payments/payments/{id}/process',
+            'process' => '/api/payments/process',
             'verify' => '/api/payments/payments/{id}/verify',
             'methods' => '/api/payments/methods',
-            'history' => '/api/payments/history',
+            'history' => '/api/payments/payments',
             'refund' => '/api/payments/payments/{id}/refund',
         ],
         'notifications' => [

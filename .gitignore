@@ -1,56 +1,30 @@
-# Ignore documentation files the user asked to keep locally
-# README.md  # Commented out - needed for submission
-ARCHITECTURE.md
-SYSTEM_DESIGN.md
-OPERATIONS.md
-SECURITY.md
-GLOSSARY.md
-DATABASE_ARCHITECTURE.md
-ARCHITECTURE_ANALYSIS.md
-CODE_ARCHITECTURE.md
-INFRASTRUCTURE.md
-FIXES.md
-# docs/  # Commented out - docs/LOAD_TESTING.md and docs/RUNBOOK.md needed
-
-# Exception: Allow important docs for submission
-!docs/LOAD_TESTING.md
-!docs/RUNBOOK.md
-!docs/diagrams/
-!scripts/README.md
-
-# Python
-__pycache__/
-*.py[cod]
-venv/
-.venv/
-env/
-*.env
-
-# Editor / OS
-.vscode/
-*.swp
-Thumbs.db
-.DS_Store
-
-# Docker
-*.tgz
-docker-compose.override.yml
+# =============================================================================
 # .gitignore for Distributed Movie Booking System
+# =============================================================================
+# This file specifies intentionally untracked files that Git should ignore.
+# Organized by category for maintainability.
+# =============================================================================
 
-# Environment Variables
+# -----------------------------------------------------------------------------
+# 1. ENVIRONMENT VARIABLES & SECRETS
+# -----------------------------------------------------------------------------
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+*.secret
+*.key
+*.pem
+*.crt
+secrets/
 
-# Python
+# -----------------------------------------------------------------------------
+# 2. PYTHON (FastAPI Microservices)
+# -----------------------------------------------------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-env/
-venv/
-ENV/
 build/
 develop-eggs/
 dist/
@@ -67,11 +41,40 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+.conda/
+
+# Testing & Coverage
 .pytest_cache/
 .coverage
 htmlcov/
+*.cover
+.hypothesis/
+.tox/
+.nox/
+coverage.xml
+*.py,cover
+.cache/
+nosetests.xml
 
-# Laravel / PHP
+# Type Checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# -----------------------------------------------------------------------------
+# 3. LARAVEL / PHP (Frontend)
+# -----------------------------------------------------------------------------
 /frontend/vendor/
 /frontend/node_modules/
 /frontend/public/hot
@@ -80,58 +83,100 @@ htmlcov/
 /frontend/.env
 /frontend/.env.backup
 /frontend/.phpunit.result.cache
-Homestead.json
-Homestead.yaml
-npm-debug.log
-yarn-error.log
 /frontend/public/mix-manifest.json
 /frontend/public/css/
 /frontend/public/js/
+Homestead.json
+Homestead.yaml
+composer.lock
+package-lock.json
 
-# IDE
+# -----------------------------------------------------------------------------
+# 4. NODE.JS / NPM
+# -----------------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.yarn/
+
+# -----------------------------------------------------------------------------
+# 5. IDE & EDITOR FILES
+# -----------------------------------------------------------------------------
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-workspace
+*.sublime-project
+.project
+.classpath
+.settings/
+
+# -----------------------------------------------------------------------------
+# 6. OPERATING SYSTEM
+# -----------------------------------------------------------------------------
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
 
-# Docker
-*.log
+# -----------------------------------------------------------------------------
+# 7. DOCKER
+# -----------------------------------------------------------------------------
+*.tgz
+docker-compose.override.yml
 .docker/
+docker-compose.*.local.yml
 
-# Database
+# -----------------------------------------------------------------------------
+# 8. DATABASE & CACHE
+# -----------------------------------------------------------------------------
 *.sql
+!database/*.sql
 *.sqlite
+*.sqlite3
 *.db
-
-# Redis
 dump.rdb
+*.dump
+*.bak
 
-# Logs
+# -----------------------------------------------------------------------------
+# 9. LOGS
+# -----------------------------------------------------------------------------
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+log/
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-*.cover
-.hypothesis/
-
-# Temporary files
+# -----------------------------------------------------------------------------
+# 10. TEMPORARY FILES
+# -----------------------------------------------------------------------------
 *.tmp
 *.temp
+tmp/
+temp/
 .cache/
+*.swp
 
-# Personal documentation files
+# -----------------------------------------------------------------------------
+# 11. KUBERNETES SECRETS (Never commit)
+# -----------------------------------------------------------------------------
+k8s/secrets/*.yaml
+k8s/secrets/*.yml
+*-secret.yaml
+*-secret.yml
+
+# -----------------------------------------------------------------------------
+# 12. PERSONAL DOCUMENTATION (Local study files)
+# -----------------------------------------------------------------------------
+# These are personal study/preparation files, not for submission
+PROJECT_EXPLAINER_VN.md
 KNOWLEDGE_GUIDE.md
 DEPLOYMENT_GUIDE.md
 PRESENTATION_CHECKLIST.md
@@ -144,32 +189,38 @@ TECHNICAL_ARCHITECTURE.md
 SYSTEM_ARCHITECTURE_DETAILED.md
 KUBERNETES_ARCHITECTURE.md
 CICD_PIPELINE.md
-activitydragramsignup.xml
 ARCHITECTURE.md
-# Sensitive or local deployment files (do not publish)
-docker-compose.yml
-docker-compose.dev.yml
-docker-compose.test.yml
-docker-compose.*.yml
-deploy.sh
-deploy.ps1
-scripts/deploy.sh
-scripts/deploy.ps1
+SYSTEM_DESIGN.md
+OPERATIONS.md
+SECURITY.md
+DATABASE_ARCHITECTURE.md
+ARCHITECTURE_ANALYSIS.md
+CODE_ARCHITECTURE.md
+INFRASTRUCTURE.md
+FIXES.md
 
-# Local test scripts that may contain credentials or test tokens
-test_api_full.sh
-test_api.sh
-test_api.ps1
-scripts/test_api_full.sh
-scripts/test_api.sh
-scripts/test_api.ps1
+# -----------------------------------------------------------------------------
+# 13. BUILD ARTIFACTS
+# -----------------------------------------------------------------------------
+build/
+dist/
+out/
+target/
+*.class
+*.jar
+*.war
 
-# Kubernetes secrets
-k8s/secrets/*.yaml
+# -----------------------------------------------------------------------------
+# 14. MONITORING DATA (Local only)
+# -----------------------------------------------------------------------------
+monitoring/data/
+grafana-data/
+prometheus-data/
 
-# Ignore any files with embedded credentials
-*.secret
-*.key
-*.pem
-.env.local
-.env.*
+# -----------------------------------------------------------------------------
+# 15. MISCELLANEOUS
+# -----------------------------------------------------------------------------
+activitydragramsignup.xml
+*.bak
+*.backup
+*~

@@ -106,4 +106,40 @@ class AuthService extends ApiService
         
         return $response;
     }
+
+    /**
+     * Update user profile
+     */
+    public function updateProfile(array $data): array
+    {
+        $response = $this->put(
+            config('api.endpoints.auth.update_profile', '/api/auth/profile'),
+            $data,
+            true
+        );
+
+        if ($response['success']) {
+            // Update session with new user data
+            $user = Session::get('user', []);
+            $user = array_merge($user, $data);
+            Session::put('user', $user);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Change user password
+     */
+    public function changePassword(string $currentPassword, string $newPassword): array
+    {
+        return $this->post(
+            config('api.endpoints.auth.change_password', '/api/auth/change-password'),
+            [
+                'current_password' => $currentPassword,
+                'new_password' => $newPassword,
+            ],
+            true
+        );
+    }
 }
