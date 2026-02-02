@@ -70,6 +70,7 @@ kubectl port-forward -n movie-booking svc/grafana 3000:3000
 ## DEMO 1: Horizontal Pod Autoscaling (HPA)
 
 ### Mục tiêu
+
 Chứng minh hệ thống tự động scale pods khi tải tăng cao.
 
 ### Bước 1: Kiểm tra trạng thái ban đầu
@@ -105,12 +106,14 @@ kubectl top pods -n movie-booking
 ```
 
 ### Kết quả mong đợi
+
 ```
 NAME                           REFERENCE                 TARGETS          MINPODS   MAXPODS   REPLICAS
 booking-service-hpa   Deployment/booking-service   85%/70% (CPU)    2         15        8
 ```
 
 **Giải thích**:
+
 - Ban đầu: 2 pods (minReplicas)
 - CPU > 70% → HPA tự động tăng lên 8 pods
 - Load giảm → Scale down về 2 pods (sau 5 phút)
@@ -120,6 +123,7 @@ booking-service-hpa   Deployment/booking-service   85%/70% (CPU)    2         15
 ## DEMO 2: Self-Healing and High Availability
 
 ### Mục tiêu
+
 Chứng minh K8s tự động restart pods bị lỗi.
 
 ### Bước 1: Xem pods đang chạy
@@ -142,6 +146,7 @@ kubectl get pods -n movie-booking -l app=auth-service -w
 ```
 
 ### Kết quả mong đợi
+
 ```
 NAME                            READY   STATUS        RESTARTS
 auth-service-7d4b5f6c8d-abc12   1/1     Terminating   0
@@ -150,6 +155,7 @@ auth-service-7d4b5f6c8d-xyz99   1/1     Running       0
 ```
 
 **Giải thích**:
+
 - K8s phát hiện pod bị xóa
 - Tự động tạo pod mới trong vài giây
 - Service vẫn hoạt động bình thường (không downtime)
@@ -241,6 +247,7 @@ curl http://localhost/api/auth/health
 ### Bước 4: Quan sát Dashboard
 
 Trên Grafana bạn sẽ thấy:
+
 - **Real-time graphs** cập nhật mỗi 5s
 - **Alerts** nếu có vấn đề (CPU > 90%, Error rate > 5%)
 - **Heatmaps** thể hiện latency distribution
@@ -266,6 +273,7 @@ rate(container_cpu_usage_seconds_total[5m])
 ## DEMO 4: Service Mesh with Istio
 
 ### Mục tiêu
+
 Chứng minh traffic management, retries, circuit breaking.
 
 ### Feature 1: Traffic Routing
@@ -300,6 +308,7 @@ spec:
 ```
 
 Test:
+
 ```powershell
 # Một số request sẽ chậm 5s
 for ($i=1; $i -le 10; $i++) {
@@ -310,6 +319,7 @@ for ($i=1; $i -le 10; $i++) {
 ### Feature 3: Retry & Timeout
 
 Cấu hình sẵn trong `service-mesh.yaml`:
+
 - **Retries**: Tự động retry 3 lần khi lỗi 5xx
 - **Timeout**: 30s cho normal requests, 60s cho booking/payment
 - **Circuit Breaking**: Ngắt kết nối nếu quá nhiều lỗi
@@ -319,6 +329,7 @@ Cấu hình sẵn trong `service-mesh.yaml`:
 ## DEMO 5: Rolling Updates (Zero Downtime)
 
 ### Mục tiêu
+
 Update service mà không downtime.
 
 ### Bước 1: Check version hiện tại
@@ -353,6 +364,7 @@ auth-service-v1-abc123-xyz      1/1     Terminating         0
 ```
 
 **Giải thích**:
+
 1. K8s tạo pod mới (v1.1) trước
 2. Chờ pod mới ready
 3. Chuyển traffic sang pod mới
@@ -366,6 +378,7 @@ auth-service-v1-abc123-xyz      1/1     Terminating         0
 ## DEMO 6: Network Security Policies
 
 ### Mục tiêu
+
 Chứng minh isolation giữa các services.
 
 ### Bước 1: Apply network policies
@@ -390,6 +403,7 @@ curl http://postgres-booking:5432
 ```
 
 **Policy ví dụ:**
+
 - Chỉ booking-service được connect tới postgres-booking
 - Chỉ API Gateway được nhận traffic từ bên ngoài
 - Service-to-service communication qua specific ports
@@ -412,22 +426,22 @@ pip install locust
 
 ```javascript
 // load-test.js
-import http from 'k6/http';
-import { check, sleep } from 'k6';
+import http from "k6/http";
+import { check, sleep } from "k6";
 
 export let options = {
   stages: [
-    { duration: '2m', target: 100 },  // Ramp up to 100 users
-    { duration: '5m', target: 100 },  // Stay at 100 users
-    { duration: '2m', target: 0 },    // Ramp down
+    { duration: "2m", target: 100 }, // Ramp up to 100 users
+    { duration: "5m", target: 100 }, // Stay at 100 users
+    { duration: "2m", target: 0 }, // Ramp down
   ],
 };
 
-export default function() {
-  let res = http.get('http://localhost/api/movies');
+export default function () {
+  let res = http.get("http://localhost/api/movies");
   check(res, {
-    'status is 200': (r) => r.status === 200,
-    'response time < 500ms': (r) => r.timings.duration < 500,
+    "status is 200": (r) => r.status === 200,
+    "response time < 500ms": (r) => r.timings.duration < 500,
   });
   sleep(1);
 }
@@ -447,41 +461,45 @@ k6 run load-test.js
 
 ## Comparison: Docker Compose vs Kubernetes
 
-| Feature | Docker Compose | Kubernetes |
-|---------|---------------|------------|
-| **Deployment** | `docker-compose up` | `kubectl apply -k k8s/` |
-| **Scaling** | Manual: `docker-compose scale` | Auto: HPA |
-| **Self-Healing** | None | Automatic |
-| **Load Balancing** | Basic (nginx) | Advanced (Istio) |
-| **Monitoring** | Manual setup | Prometheus+Grafana |
-| **Rolling Updates** | Downtime | Zero-downtime |
-| **Resource Limits** | Basic | Requests/Limits |
-| **Network Policies** | None | Full isolation |
-| **Secrets Management** | .env files | K8s Secrets |
-| **Service Discovery** | DNS only | Advanced |
+| Feature                | Docker Compose                 | Kubernetes              |
+| ---------------------- | ------------------------------ | ----------------------- |
+| **Deployment**         | `docker-compose up`            | `kubectl apply -k k8s/` |
+| **Scaling**            | Manual: `docker-compose scale` | Auto: HPA               |
+| **Self-Healing**       | None                           | Automatic               |
+| **Load Balancing**     | Basic (nginx)                  | Advanced (Istio)        |
+| **Monitoring**         | Manual setup                   | Prometheus+Grafana      |
+| **Rolling Updates**    | Downtime                       | Zero-downtime           |
+| **Resource Limits**    | Basic                          | Requests/Limits         |
+| **Network Policies**   | None                           | Full isolation          |
+| **Secrets Management** | .env files                     | K8s Secrets             |
+| **Service Discovery**  | DNS only                       | Advanced                |
 
 ---
 
 ## Complete Demo Script (15 minutes)
 
 ### Phần 1: Giới thiệu (2 phút)
+
 ```
-"Hệ thống Movie Booking được deploy trên Kubernetes với đầy đủ 
+"Hệ thống Movie Booking được deploy trên Kubernetes với đầy đủ
 production features: Auto-scaling, Self-healing, Monitoring, Service Mesh"
 ```
 
 ### Phần 2: Auto-Scaling Demo (4 phút)
+
 1. Show HPA status: `kubectl get hpa -n movie-booking`
 2. Chạy load test
 3. Watch pods scale up real-time
 4. Show Grafana metrics
 
 ### Phần 3: Self-Healing Demo (3 phút)
+
 1. Delete một pod
 2. K8s tự động tạo lại
 3. Service không bị gián đoạn
 
 ### Phần 4: Monitoring Dashboard (3 phút)
+
 1. Mở Grafana: http://localhost:3000
 2. Show các metrics:
    - Request rate
@@ -490,6 +508,7 @@ production features: Auto-scaling, Self-healing, Monitoring, Service Mesh"
    - Business metrics (bookings, payments)
 
 ### Phần 5: Rolling Update (3 phút)
+
 1. Update một service
 2. Watch zero-downtime deployment
 3. Rollback nếu có lỗi

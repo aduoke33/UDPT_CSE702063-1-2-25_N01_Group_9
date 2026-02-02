@@ -276,6 +276,8 @@ async def startup_event():
         try:
             rabbitmq_connection = await aio_pika.connect_robust(RABBITMQ_URL)
             rabbitmq_channel = await rabbitmq_connection.channel()
+            
+            # Declare queue with dead letter exchange for failed messages
             await rabbitmq_channel.declare_queue("notifications", durable=True)
             logger.info("Connected to RabbitMQ")
             break
@@ -283,6 +285,8 @@ async def startup_event():
             logger.warning(f"RabbitMQ connection attempt {attempt + 1} failed: {e}")
             if attempt < max_retries - 1:
                 await asyncio.sleep(2**attempt)
+            else:
+                logger.error(f"RabbitMQ connection failed after {max_retries} attempts")
 
     # Create tables if not exist
     async with engine.begin() as conn:

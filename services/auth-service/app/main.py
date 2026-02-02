@@ -64,7 +64,9 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://localhost
 # =====================================================
 # DATABASE SETUP
 # =====================================================
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(
+    DATABASE_URL, echo=True, pool_size=10, max_overflow=20, pool_pre_ping=True
+)
 async_session_maker = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )

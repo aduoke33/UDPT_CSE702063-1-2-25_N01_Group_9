@@ -63,7 +63,9 @@ RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://admin:admin123@rabbitmq:5672/")
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://localhost:3000").split(",")
 
 # Database Setup
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(
+    DATABASE_URL, echo=True, pool_size=10, max_overflow=20, pool_pre_ping=True
+)
 async_session_maker = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
@@ -225,23 +227,40 @@ async def send_sms_notification(notification_data: dict, db: AsyncSession):
 
 
 async def process_notification(message: aio_pika.IncomingMessage):
-    """Process notification from RabbitMQ queue"""
+    """Process notification from RabbitMQ queue with proper acknowledgment"""
+    import time
+    start_time = time.time()
+    
     async with message.process():
-        notification_data = json.loads(message.body.decode())
+        queue_messages_received.inc()
+        pending_notifications_gauge.inc()
+        
+        try:
+            notification_data = json.loads(message.body.decode())
+            notification_type = notification_data.get("type", "email")
 
-        async with async_session_maker() as db:
-            try:
-                notification_type = notification_data.get("type", "email")
-
+            async with async_session_maker() as db:
                 if notification_type == "email":
                     await send_email_notification(notification_data, db)
+                    notification_counter.labels(type="email", status="success").inc()
                 elif notification_type == "sms":
                     await send_sms_notification(notification_data, db)
+                    notification_counter.labels(type="sms", status="success").inc()
                 else:
                     logger.warning(f"Unknown notification type: {notification_type}")
+                    notification_counter.labels(type=notification_type, status="unknown").inc()
 
-            except Exception as e:
-                logger.error(f"Error processing notification: {e}", exc_info=True)
+            notification_processing_histogram.observe(time.time() - start_time)
+            notification_send_histogram.labels(type=notification_type).observe(time.time() - start_time)
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON in message: {e}")
+            notification_counter.labels(type="unknown", status="error").inc()
+        except Exception as e:
+            logger.error(f"Error processing notification: {e}", exc_info=True)
+            notification_counter.labels(type="unknown", status="error").inc()
+        finally:
+            pending_notifications_gauge.dec()
 
 
 async def consume_notifications():
@@ -260,16 +279,27 @@ async def startup_event():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Connect to RabbitMQ
-    try:
-        rabbitmq_connection = await aio_pika.connect_robust(RABBITMQ_URL)
-        rabbitmq_channel = await rabbitmq_connection.channel()
+    # Connect to RabbitMQ with retry logic
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            rabbitmq_connection = await aio_pika.connect_robust(RABBITMQ_URL)
+            rabbitmq_channel = await rabbitmq_connection.channel()
+            
+            # Set prefetch count for better load distribution
+            await rabbitmq_channel.set_qos(prefetch_count=10)
 
-        # Start consumer
-        consumer_task = asyncio.create_task(consume_notifications())
+            # Start consumer
+            consumer_task = asyncio.create_task(consume_notifications())
+            logger.info("Connected to RabbitMQ and consumer started")
+            break
 
-    except Exception as e:
-        logger.error(f"RabbitMQ connection failed: {e}", exc_info=True)
+        except Exception as e:
+            logger.warning(f"RabbitMQ connection attempt {attempt + 1} failed: {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 ** attempt)
+            else:
+                logger.error(f"RabbitMQ connection failed after {max_retries} attempts", exc_info=True)
 
 
 @app.on_event("shutdown")

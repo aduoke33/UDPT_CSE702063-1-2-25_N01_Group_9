@@ -29,13 +29,13 @@ Tai lieu nay huong dan chi tiet cach chay he thong Movie Booking tren Kubernetes
 
 ### Required Software
 
-| Tool                             | Version   | Required            |
-| -------------------------------- | --------- | ------------------- |
-| Docker                           | >= 20.10  | Yes                 |
-| kubectl                          | >= 1.28   | Yes                 |
-| minikube / kind / Docker Desktop | Latest    | Yes (one of three)  |
-| Helm                             | >= 3.12   | Recommended         |
-| Skaffold                         | >= 2.0    | Optional            |
+| Tool                             | Version  | Required           |
+| -------------------------------- | -------- | ------------------ |
+| Docker                           | >= 20.10 | Yes                |
+| kubectl                          | >= 1.28  | Yes                |
+| minikube / kind / Docker Desktop | Latest   | Yes (one of three) |
+| Helm                             | >= 3.12  | Recommended        |
+| Skaffold                         | >= 2.0   | Optional           |
 
 ---
 

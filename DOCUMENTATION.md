@@ -2,12 +2,12 @@
 
 ## Movie Booking Distributed System
 
-| Field | Value |
-|:------|:------|
-| **Version** | 2.0 |
-| **Last Updated** | February 2026 |
-| **Course** | CSE702063 - Distributed Applications |
-| **Group** | N01 - Group 9 |
+| Field            | Value                                |
+| :--------------- | :----------------------------------- |
+| **Version**      | 2.0                                  |
+| **Last Updated** | February 2026                        |
+| **Course**       | CSE702063 - Distributed Applications |
+| **Group**        | N01 - Group 9                        |
 
 ---
 
@@ -27,42 +27,42 @@
 
 ### 1.1 Backend Services
 
-| Component | Technology | Version | Purpose |
-|-----------|------------|---------|---------|
-| **Framework** | FastAPI | 0.104+ | High-performance async REST API |
-| **Language** | Python | 3.11+ | Backend programming language |
-| **Database** | PostgreSQL | 15-alpine | Primary data storage |
-| **Cache** | Redis | 7-alpine | Caching, distributed locks, sessions |
-| **Message Queue** | RabbitMQ | 3-management | Async messaging between services |
-| **ORM** | SQLAlchemy | 2.0+ | Async database operations |
+| Component         | Technology | Version      | Purpose                              |
+| ----------------- | ---------- | ------------ | ------------------------------------ |
+| **Framework**     | FastAPI    | 0.104+       | High-performance async REST API      |
+| **Language**      | Python     | 3.11+        | Backend programming language         |
+| **Database**      | PostgreSQL | 15-alpine    | Primary data storage                 |
+| **Cache**         | Redis      | 7-alpine     | Caching, distributed locks, sessions |
+| **Message Queue** | RabbitMQ   | 3-management | Async messaging between services     |
+| **ORM**           | SQLAlchemy | 2.0+         | Async database operations            |
 
 ### 1.2 Frontend Application
 
-| Component | Technology | Version | Purpose |
-|-----------|------------|---------|---------|
-| **Framework** | Laravel | 10.x | PHP web framework |
-| **Language** | PHP | 8.2+ | Frontend programming language |
-| **Template** | Blade | - | Server-side rendering |
-| **HTTP Client** | Guzzle | 7.x | API communication |
+| Component       | Technology | Version | Purpose                       |
+| --------------- | ---------- | ------- | ----------------------------- |
+| **Framework**   | Laravel    | 10.x    | PHP web framework             |
+| **Language**    | PHP        | 8.2+    | Frontend programming language |
+| **Template**    | Blade      | -       | Server-side rendering         |
+| **HTTP Client** | Guzzle     | 7.x     | API communication             |
 
 ### 1.3 Infrastructure
 
-| Component | Technology | Version | Purpose |
-|-----------|------------|---------|---------|
-| **Containerization** | Docker | 24.x | Application containers |
-| **Orchestration** | Docker Compose | 2.x | Local development orchestration |
-| **API Gateway** | NGINX | Alpine | Load balancing, routing, SSL |
-| **Monitoring** | Prometheus | Latest | Metrics collection |
-| **Dashboards** | Grafana | Latest | Visualization & alerting |
-| **Kubernetes** | K8s | 1.28+ | Production orchestration (optional) |
+| Component            | Technology     | Version | Purpose                             |
+| -------------------- | -------------- | ------- | ----------------------------------- |
+| **Containerization** | Docker         | 24.x    | Application containers              |
+| **Orchestration**    | Docker Compose | 2.x     | Local development orchestration     |
+| **API Gateway**      | NGINX          | Alpine  | Load balancing, routing, SSL        |
+| **Monitoring**       | Prometheus     | Latest  | Metrics collection                  |
+| **Dashboards**       | Grafana        | Latest  | Visualization & alerting            |
+| **Kubernetes**       | K8s            | 1.28+   | Production orchestration (optional) |
 
 ### 1.4 Development Tools
 
-| Tool | Purpose |
-|------|---------|
-| **pytest** | Python unit testing |
-| **locust** | Load testing |
-| **k6** | Performance testing |
+| Tool           | Purpose               |
+| -------------- | --------------------- |
+| **pytest**     | Python unit testing   |
+| **locust**     | Load testing          |
+| **k6**         | Performance testing   |
 | **Mermaid.js** | Architecture diagrams |
 
 ---
@@ -106,21 +106,21 @@
 
 ### 2.2 Service Responsibilities
 
-| Service | Port | Database | Responsibility |
-|---------|------|----------|----------------|
-| **Auth Service** | 8001 | auth_db (5433) | User authentication, JWT tokens, profile management |
-| **Movie Service** | 8002 | movies_db (5434) | Movie catalog, showtimes, theaters, seat availability |
-| **Booking Service** | 8003 | bookings_db (5435) | Seat reservation, distributed locking, booking lifecycle |
-| **Payment Service** | 8004 | payments_db (5436) | Payment processing, idempotency, refunds |
-| **Notification Service** | 8005 | notifications_db (5437) | Email/SMS notifications via RabbitMQ |
+| Service                  | Port | Database                | Responsibility                                           |
+| ------------------------ | ---- | ----------------------- | -------------------------------------------------------- |
+| **Auth Service**         | 8001 | auth_db (5433)          | User authentication, JWT tokens, profile management      |
+| **Movie Service**        | 8002 | movies_db (5434)        | Movie catalog, showtimes, theaters, seat availability    |
+| **Booking Service**      | 8003 | bookings_db (5435)      | Seat reservation, distributed locking, booking lifecycle |
+| **Payment Service**      | 8004 | payments_db (5436)      | Payment processing, idempotency, refunds                 |
+| **Notification Service** | 8005 | notifications_db (5437) | Email/SMS notifications via RabbitMQ                     |
 
 ### 2.3 Communication Patterns
 
-| Pattern | Usage | Implementation |
-|---------|-------|----------------|
-| **Synchronous** | Real-time requests | HTTP/REST via API Gateway |
-| **Asynchronous** | Background tasks | RabbitMQ message queues |
-| **Event-Driven** | Notifications | Publisher/Subscriber pattern |
+| Pattern          | Usage              | Implementation               |
+| ---------------- | ------------------ | ---------------------------- |
+| **Synchronous**  | Real-time requests | HTTP/REST via API Gateway    |
+| **Asynchronous** | Background tasks   | RabbitMQ message queues      |
+| **Event-Driven** | Notifications      | Publisher/Subscriber pattern |
 
 ---
 
@@ -207,61 +207,61 @@
 
 #### 3.2.1 Users Table (auth_db)
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | UUID | PK, DEFAULT uuid_generate_v4() | Unique identifier |
-| `email` | VARCHAR(255) | UNIQUE, NOT NULL | User email address |
-| `username` | VARCHAR(100) | UNIQUE, NOT NULL | Login username |
-| `password_hash` | VARCHAR(255) | NOT NULL | BCrypt hashed password |
-| `full_name` | VARCHAR(255) | - | User's full name |
-| `phone_number` | VARCHAR(20) | - | Contact phone |
-| `role` | VARCHAR(20) | CHECK (customer/admin/staff) | User role |
-| `is_active` | BOOLEAN | DEFAULT true | Account status |
-| `created_at` | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | Creation time |
-| `updated_at` | TIMESTAMP | AUTO UPDATE | Last modification |
+| Column          | Type         | Constraints                    | Description            |
+| --------------- | ------------ | ------------------------------ | ---------------------- |
+| `id`            | UUID         | PK, DEFAULT uuid_generate_v4() | Unique identifier      |
+| `email`         | VARCHAR(255) | UNIQUE, NOT NULL               | User email address     |
+| `username`      | VARCHAR(100) | UNIQUE, NOT NULL               | Login username         |
+| `password_hash` | VARCHAR(255) | NOT NULL                       | BCrypt hashed password |
+| `full_name`     | VARCHAR(255) | -                              | User's full name       |
+| `phone_number`  | VARCHAR(20)  | -                              | Contact phone          |
+| `role`          | VARCHAR(20)  | CHECK (customer/admin/staff)   | User role              |
+| `is_active`     | BOOLEAN      | DEFAULT true                   | Account status         |
+| `created_at`    | TIMESTAMP    | DEFAULT CURRENT_TIMESTAMP      | Creation time          |
+| `updated_at`    | TIMESTAMP    | AUTO UPDATE                    | Last modification      |
 
 #### 3.2.2 Movies Table (movies_db)
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | UUID | PK | Unique identifier |
-| `title` | VARCHAR(255) | NOT NULL | Movie title |
-| `description` | TEXT | - | Synopsis |
-| `duration_minutes` | INTEGER | NOT NULL | Runtime in minutes |
-| `genre` | VARCHAR(100) | - | Genre category |
-| `language` | VARCHAR(50) | - | Audio language |
-| `rating` | VARCHAR(10) | - | Age rating (PG-13, R, etc.) |
-| `release_date` | DATE | - | Theatrical release date |
-| `poster_url` | VARCHAR(500) | - | Movie poster image URL |
-| `director` | VARCHAR(255) | - | Director name |
-| `is_active` | BOOLEAN | DEFAULT true | Currently showing |
+| Column             | Type         | Constraints  | Description                 |
+| ------------------ | ------------ | ------------ | --------------------------- |
+| `id`               | UUID         | PK           | Unique identifier           |
+| `title`            | VARCHAR(255) | NOT NULL     | Movie title                 |
+| `description`      | TEXT         | -            | Synopsis                    |
+| `duration_minutes` | INTEGER      | NOT NULL     | Runtime in minutes          |
+| `genre`            | VARCHAR(100) | -            | Genre category              |
+| `language`         | VARCHAR(50)  | -            | Audio language              |
+| `rating`           | VARCHAR(10)  | -            | Age rating (PG-13, R, etc.) |
+| `release_date`     | DATE         | -            | Theatrical release date     |
+| `poster_url`       | VARCHAR(500) | -            | Movie poster image URL      |
+| `director`         | VARCHAR(255) | -            | Director name               |
+| `is_active`        | BOOLEAN      | DEFAULT true | Currently showing           |
 
 #### 3.2.3 Bookings Table (bookings_db)
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | UUID | PK | Unique identifier |
-| `user_id` | UUID | FK → users.id | Booking owner |
-| `showtime_id` | UUID | FK → showtimes.id | Selected showtime |
-| `booking_code` | VARCHAR(20) | UNIQUE, NOT NULL | Human-readable code |
-| `total_seats` | INTEGER | NOT NULL | Number of seats |
-| `total_price` | DECIMAL(10,2) | NOT NULL | Total amount |
-| `status` | VARCHAR(20) | CHECK constraint | pending/confirmed/cancelled/expired |
-| `payment_status` | VARCHAR(20) | CHECK constraint | unpaid/paid/refunded |
-| `expires_at` | TIMESTAMP | - | Pending booking expiry |
+| Column           | Type          | Constraints       | Description                         |
+| ---------------- | ------------- | ----------------- | ----------------------------------- |
+| `id`             | UUID          | PK                | Unique identifier                   |
+| `user_id`        | UUID          | FK → users.id     | Booking owner                       |
+| `showtime_id`    | UUID          | FK → showtimes.id | Selected showtime                   |
+| `booking_code`   | VARCHAR(20)   | UNIQUE, NOT NULL  | Human-readable code                 |
+| `total_seats`    | INTEGER       | NOT NULL          | Number of seats                     |
+| `total_price`    | DECIMAL(10,2) | NOT NULL          | Total amount                        |
+| `status`         | VARCHAR(20)   | CHECK constraint  | pending/confirmed/cancelled/expired |
+| `payment_status` | VARCHAR(20)   | CHECK constraint  | unpaid/paid/refunded                |
+| `expires_at`     | TIMESTAMP     | -                 | Pending booking expiry              |
 
 #### 3.2.4 Payments Table (payments_db)
 
-| Column | Type | Constraints | Description |
-|--------|------|-------------|-------------|
-| `id` | UUID | PK | Unique identifier |
-| `booking_id` | UUID | NOT NULL | Associated booking |
-| `user_id` | UUID | NOT NULL | Payment owner |
-| `amount` | DECIMAL(10,2) | NOT NULL | Payment amount |
-| `payment_method` | VARCHAR(50) | - | credit_card/bank_transfer/e_wallet |
-| `transaction_id` | VARCHAR(255) | UNIQUE | Gateway transaction ID |
-| `idempotency_key` | VARCHAR(255) | UNIQUE | Client idempotency key |
-| `status` | VARCHAR(20) | CHECK | pending/completed/failed/refunded |
+| Column            | Type          | Constraints | Description                        |
+| ----------------- | ------------- | ----------- | ---------------------------------- |
+| `id`              | UUID          | PK          | Unique identifier                  |
+| `booking_id`      | UUID          | NOT NULL    | Associated booking                 |
+| `user_id`         | UUID          | NOT NULL    | Payment owner                      |
+| `amount`          | DECIMAL(10,2) | NOT NULL    | Payment amount                     |
+| `payment_method`  | VARCHAR(50)   | -           | credit_card/bank_transfer/e_wallet |
+| `transaction_id`  | VARCHAR(255)  | UNIQUE      | Gateway transaction ID             |
+| `idempotency_key` | VARCHAR(255)  | UNIQUE      | Client idempotency key             |
+| `status`          | VARCHAR(20)   | CHECK       | pending/completed/failed/refunded  |
 
 ---
 
@@ -271,15 +271,15 @@
 
 Base URL: `http://localhost:8001` or `/api/auth` via Gateway
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `POST` | `/token` | User login (OAuth2 form) | No |
-| `POST` | `/register` | Create new user account | No |
-| `GET` | `/verify` | Verify JWT token | Yes |
-| `PUT` | `/profile` | Update user profile | Yes |
-| `POST` | `/change-password` | Change password | Yes |
-| `POST` | `/logout` | Invalidate token | Yes |
-| `GET` | `/health` | Health check | No |
+| Method | Endpoint           | Description              | Auth Required |
+| ------ | ------------------ | ------------------------ | ------------- |
+| `POST` | `/token`           | User login (OAuth2 form) | No            |
+| `POST` | `/register`        | Create new user account  | No            |
+| `GET`  | `/verify`          | Verify JWT token         | Yes           |
+| `PUT`  | `/profile`         | Update user profile      | Yes           |
+| `POST` | `/change-password` | Change password          | Yes           |
+| `POST` | `/logout`          | Invalidate token         | Yes           |
+| `GET`  | `/health`          | Health check             | No            |
 
 #### Example: Login
 
@@ -291,6 +291,7 @@ username=user@example.com&password=secret123
 ```
 
 **Response (200 OK):**
+
 ```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -310,19 +311,19 @@ username=user@example.com&password=secret123
 
 Base URL: `http://localhost:8002` or `/api/movies` via Gateway
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `GET` | `/movies` | List all active movies | No |
-| `GET` | `/movies/{id}` | Get movie details | No |
-| `POST` | `/movies` | Create new movie | Yes (Admin) |
-| `GET` | `/theaters` | List all theaters | No |
-| `POST` | `/theaters` | Create new theater | Yes (Admin) |
-| `GET` | `/showtimes` | List showtimes (filter by movie/date) | No |
-| `GET` | `/showtimes/{id}` | Get showtime details | No |
-| `POST` | `/showtimes` | Create new showtime | Yes (Admin) |
-| `GET` | `/showtimes/{id}/available-seats` | Get available seats | No |
-| `GET` | `/seats/{theater_id}` | Get theater seats | No |
-| `GET` | `/health` | Health check | No |
+| Method | Endpoint                          | Description                           | Auth Required |
+| ------ | --------------------------------- | ------------------------------------- | ------------- |
+| `GET`  | `/movies`                         | List all active movies                | No            |
+| `GET`  | `/movies/{id}`                    | Get movie details                     | No            |
+| `POST` | `/movies`                         | Create new movie                      | Yes (Admin)   |
+| `GET`  | `/theaters`                       | List all theaters                     | No            |
+| `POST` | `/theaters`                       | Create new theater                    | Yes (Admin)   |
+| `GET`  | `/showtimes`                      | List showtimes (filter by movie/date) | No            |
+| `GET`  | `/showtimes/{id}`                 | Get showtime details                  | No            |
+| `POST` | `/showtimes`                      | Create new showtime                   | Yes (Admin)   |
+| `GET`  | `/showtimes/{id}/available-seats` | Get available seats                   | No            |
+| `GET`  | `/seats/{theater_id}`             | Get theater seats                     | No            |
+| `GET`  | `/health`                         | Health check                          | No            |
 
 #### Example: Get Movies
 
@@ -331,6 +332,7 @@ GET /api/movies?genre=Sci-Fi&q=Matrix
 ```
 
 **Response (200 OK):**
+
 ```json
 [
   {
@@ -353,15 +355,15 @@ GET /api/movies?genre=Sci-Fi&q=Matrix
 
 Base URL: `http://localhost:8003` or `/api/bookings` via Gateway
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `POST` | `/book` | Create new booking | Yes |
-| `GET` | `/bookings` | Get user's bookings | Yes |
-| `GET` | `/bookings/{id}` | Get booking details | Yes |
-| `POST` | `/bookings/{id}/cancel` | Cancel booking | Yes |
-| `POST` | `/seats/hold` | Hold seats temporarily | Yes |
-| `POST` | `/seats/release` | Release held seats | Yes |
-| `GET` | `/health` | Health check | No |
+| Method | Endpoint                | Description            | Auth Required |
+| ------ | ----------------------- | ---------------------- | ------------- |
+| `POST` | `/book`                 | Create new booking     | Yes           |
+| `GET`  | `/bookings`             | Get user's bookings    | Yes           |
+| `GET`  | `/bookings/{id}`        | Get booking details    | Yes           |
+| `POST` | `/bookings/{id}/cancel` | Cancel booking         | Yes           |
+| `POST` | `/seats/hold`           | Hold seats temporarily | Yes           |
+| `POST` | `/seats/release`        | Release held seats     | Yes           |
+| `GET`  | `/health`               | Health check           | No            |
 
 #### Example: Create Booking
 
@@ -380,6 +382,7 @@ Content-Type: application/json
 ```
 
 **Response (201 Created):**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440003",
@@ -387,7 +390,7 @@ Content-Type: application/json
   "booking_code": "BK7X9M2P4Q",
   "showtime_id": "550e8400-e29b-41d4-a716-446655440002",
   "total_seats": 2,
-  "total_price": 240000.00,
+  "total_price": 240000.0,
   "status": "pending",
   "payment_status": "unpaid",
   "expires_at": "2024-01-15T15:30:00Z"
@@ -398,13 +401,13 @@ Content-Type: application/json
 
 Base URL: `http://localhost:8004` or `/api/payments` via Gateway
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `POST` | `/process` | Process payment | Yes |
-| `GET` | `/payments` | Get user's payment history | Yes |
-| `GET` | `/payments/{id}` | Get payment details | Yes |
-| `POST` | `/payments/{id}/refund` | Request refund | Yes |
-| `GET` | `/health` | Health check | No |
+| Method | Endpoint                | Description                | Auth Required |
+| ------ | ----------------------- | -------------------------- | ------------- |
+| `POST` | `/process`              | Process payment            | Yes           |
+| `GET`  | `/payments`             | Get user's payment history | Yes           |
+| `GET`  | `/payments/{id}`        | Get payment details        | Yes           |
+| `POST` | `/payments/{id}/refund` | Request refund             | Yes           |
+| `GET`  | `/health`               | Health check               | No            |
 
 #### Example: Process Payment
 
@@ -422,11 +425,12 @@ Idempotency-Key: unique-client-key-12345
 ```
 
 **Response (201 Created):**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440004",
   "booking_id": "550e8400-e29b-41d4-a716-446655440003",
-  "amount": 240000.00,
+  "amount": 240000.0,
   "payment_method": "credit_card",
   "transaction_id": "TXN_1705323600_ABC123",
   "status": "completed",
@@ -438,12 +442,12 @@ Idempotency-Key: unique-client-key-12345
 
 Base URL: `http://localhost:8005` or `/api/notifications` via Gateway
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| `POST` | `/send` | Send notification directly | Yes |
-| `GET` | `/notifications` | Get user's notifications | Yes |
-| `POST` | `/notifications/{id}/read` | Mark as read | Yes |
-| `GET` | `/health` | Health check | No |
+| Method | Endpoint                   | Description                | Auth Required |
+| ------ | -------------------------- | -------------------------- | ------------- |
+| `POST` | `/send`                    | Send notification directly | Yes           |
+| `GET`  | `/notifications`           | Get user's notifications   | Yes           |
+| `POST` | `/notifications/{id}/read` | Mark as read               | Yes           |
+| `GET`  | `/health`                  | Health check               | No            |
 
 ### 4.6 Error Response Format
 
@@ -457,16 +461,16 @@ All services return standardized error responses:
 }
 ```
 
-| Status Code | Meaning |
-|-------------|---------|
-| `400` | Bad Request - Invalid input |
-| `401` | Unauthorized - Invalid/missing token |
-| `403` | Forbidden - Insufficient permissions |
-| `404` | Not Found - Resource doesn't exist |
-| `409` | Conflict - Resource conflict (e.g., seat already booked) |
-| `429` | Too Many Requests - Rate limited |
-| `500` | Internal Server Error |
-| `503` | Service Unavailable - Circuit breaker open |
+| Status Code | Meaning                                                  |
+| ----------- | -------------------------------------------------------- |
+| `400`       | Bad Request - Invalid input                              |
+| `401`       | Unauthorized - Invalid/missing token                     |
+| `403`       | Forbidden - Insufficient permissions                     |
+| `404`       | Not Found - Resource doesn't exist                       |
+| `409`       | Conflict - Resource conflict (e.g., seat already booked) |
+| `429`       | Too Many Requests - Rate limited                         |
+| `500`       | Internal Server Error                                    |
+| `503`       | Service Unavailable - Circuit breaker open               |
 
 ---
 
@@ -494,11 +498,11 @@ All services return standardized error responses:
 
 #### Configuration
 
-| Parameter | Default Value | Description |
-|-----------|---------------|-------------|
-| `SECRET_KEY` | Environment variable | JWT signing key (256-bit) |
-| `ALGORITHM` | HS256 | JWT signing algorithm |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | 30 | Token validity period |
+| Parameter                     | Default Value        | Description               |
+| ----------------------------- | -------------------- | ------------------------- |
+| `SECRET_KEY`                  | Environment variable | JWT signing key (256-bit) |
+| `ALGORITHM`                   | HS256                | JWT signing algorithm     |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | 30                   | Token validity period     |
 
 ### 5.2 Password Security
 
@@ -534,7 +538,7 @@ Environment-configurable CORS origins:
 
 ```python
 CORS_ORIGINS = os.getenv(
-    "CORS_ORIGINS", 
+    "CORS_ORIGINS",
     "http://localhost:8080,http://localhost:3000"
 ).split(",")
 
@@ -551,9 +555,9 @@ app.add_middleware(
 
 NGINX-based rate limiting:
 
-| Zone | Limit | Purpose |
-|------|-------|---------|
-| `general` | 60 req/min | Normal API endpoints |
+| Zone      | Limit      | Purpose                       |
+| --------- | ---------- | ----------------------------- |
+| `general` | 60 req/min | Normal API endpoints          |
 | `booking` | 10 req/min | Booking operations (stricter) |
 
 ```nginx
@@ -589,6 +593,7 @@ async def release_lock(lock_name: str):
 ```
 
 **Usage in Booking:**
+
 ```python
 # Lock pattern: lock:showtime:{showtime_id}
 if not await acquire_lock(f"showtime:{showtime_id}"):
@@ -633,7 +638,7 @@ async def check_idempotency(idempotency_key: str, db: AsyncSession) -> Optional[
     cached = await redis_client.get(f"idempotency:{idempotency_key}")
     if cached:
         return await get_payment_by_id(cached)
-    
+
     # Check database
     result = await db.execute(
         select(Payment).filter(Payment.idempotency_key == idempotency_key)
@@ -707,13 +712,13 @@ kubectl apply -f k8s/autoscaling/hpa.yaml
 
 ### 7.3 Environment Variables
 
-| Variable | Service | Default | Description |
-|----------|---------|---------|-------------|
-| `DATABASE_URL` | All | - | PostgreSQL connection string |
-| `REDIS_URL` | Auth, Movie, Booking, Payment | - | Redis connection string |
-| `RABBITMQ_URL` | Booking, Payment, Notification | - | RabbitMQ connection string |
-| `SECRET_KEY` | Auth | - | JWT signing secret |
-| `CORS_ORIGINS` | All | localhost | Allowed CORS origins |
+| Variable       | Service                        | Default   | Description                  |
+| -------------- | ------------------------------ | --------- | ---------------------------- |
+| `DATABASE_URL` | All                            | -         | PostgreSQL connection string |
+| `REDIS_URL`    | Auth, Movie, Booking, Payment  | -         | Redis connection string      |
+| `RABBITMQ_URL` | Booking, Payment, Notification | -         | RabbitMQ connection string   |
+| `SECRET_KEY`   | Auth                           | -         | JWT signing secret           |
+| `CORS_ORIGINS` | All                            | localhost | Allowed CORS origins         |
 
 ---
 
@@ -732,14 +737,14 @@ All services expose `/health` endpoint returning:
 
 Each service exposes `/metrics` for Prometheus scraping:
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `http_requests_total` | Counter | Total HTTP requests |
-| `http_request_duration_seconds` | Histogram | Request latency |
-| `bookings_total` | Counter | Total booking attempts |
-| `payments_total` | Counter | Total payment attempts |
-| `cache_hits_total` | Counter | Redis cache hits |
-| `circuit_breaker_state` | Gauge | Circuit breaker status |
+| Metric                          | Type      | Description            |
+| ------------------------------- | --------- | ---------------------- |
+| `http_requests_total`           | Counter   | Total HTTP requests    |
+| `http_request_duration_seconds` | Histogram | Request latency        |
+| `bookings_total`                | Counter   | Total booking attempts |
+| `payments_total`                | Counter   | Total payment attempts |
+| `cache_hits_total`              | Counter   | Redis cache hits       |
+| `circuit_breaker_state`         | Gauge     | Circuit breaker status |
 
 ---
 

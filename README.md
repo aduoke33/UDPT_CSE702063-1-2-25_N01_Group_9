@@ -8,13 +8,13 @@ Built with Microservices Architecture, Event-Driven Design, and Enterprise Patte
 
 ## Course Information
 
-| Field | Value |
-|:------|:------|
-| **Course Code** | CSE702063 |
+| Field           | Value                                        |
+| :-------------- | :------------------------------------------- |
+| **Course Code** | CSE702063                                    |
 | **Course Name** | Distributed Applications (Ứng dụng Phân tán) |
-| **Group** | N01 - Group 9 |
-| **Semester** | 1-2-25 |
-| **Version** | 2.0 |
+| **Group**       | N01 - Group 9                                |
+| **Semester**    | 1-2-25                                       |
+| **Version**     | 2.0                                          |
 
 ---
 
@@ -59,27 +59,27 @@ The system showcases critical distributed systems concepts:
 
 ### Core Functionality
 
-| Feature | Description |
-|:--------|:------------|
-| **User Authentication** | JWT-based secure authentication with token refresh |
-| **Movie Catalog** | Browse movies with details, posters, genres, ratings |
-| **Theater Management** | Multiple theaters with hall configurations |
+| Feature                 | Description                                           |
+| :---------------------- | :---------------------------------------------------- |
+| **User Authentication** | JWT-based secure authentication with token refresh    |
+| **Movie Catalog**       | Browse movies with details, posters, genres, ratings  |
+| **Theater Management**  | Multiple theaters with hall configurations            |
 | **Showtime Scheduling** | Dynamic showtime listings with real-time availability |
-| **Seat Selection** | Interactive seat map with real-time status |
-| **Ticket Booking** | Atomic booking with distributed locking |
-| **Payment Processing** | Secure payment with idempotency protection |
-| **Notifications** | Asynchronous email confirmations via message queue |
+| **Seat Selection**      | Interactive seat map with real-time status            |
+| **Ticket Booking**      | Atomic booking with distributed locking               |
+| **Payment Processing**  | Secure payment with idempotency protection            |
+| **Notifications**       | Asynchronous email confirmations via message queue    |
 
 ### Distributed System Features
 
-| Pattern | Implementation |
-|:--------|:---------------|
-| **Distributed Locking** | Redis `SET NX EX` for seat reservation |
-| **Circuit Breaker** | Automatic failover on service failures |
-| **Idempotency Keys** | Prevent duplicate payment processing |
-| **Correlation IDs** | Request tracing across services |
-| **Rate Limiting** | NGINX-based API throttling |
-| **Retry with Backoff** | Exponential backoff for transient failures |
+| Pattern                 | Implementation                             |
+| :---------------------- | :----------------------------------------- |
+| **Distributed Locking** | Redis `SET NX EX` for seat reservation     |
+| **Circuit Breaker**     | Automatic failover on service failures     |
+| **Idempotency Keys**    | Prevent duplicate payment processing       |
+| **Correlation IDs**     | Request tracing across services            |
+| **Rate Limiting**       | NGINX-based API throttling                 |
+| **Retry with Backoff**  | Exponential backoff for transient failures |
 
 ---
 
@@ -145,13 +145,13 @@ The system showcases critical distributed systems concepts:
 
 ### Service Responsibilities
 
-| Service | Port | Database | Key Responsibilities |
-|:--------|:----:|:---------|:---------------------|
-| **Auth Service** | 8001 | auth_db:5433 | User registration, login, JWT tokens, password hashing |
-| **Movie Service** | 8002 | movies_db:5434 | Movie catalog, theaters, showtimes, seat management |
-| **Booking Service** | 8003 | bookings_db:5435 | Seat locking, booking creation, booking management |
-| **Payment Service** | 8004 | payments_db:5436 | Payment processing, refunds, idempotency |
-| **Notification Service** | 8005 | notifications_db:5437 | Email notifications, async message consumption |
+| Service                  | Port | Database              | Key Responsibilities                                   |
+| :----------------------- | :--: | :-------------------- | :----------------------------------------------------- |
+| **Auth Service**         | 8001 | auth_db:5433          | User registration, login, JWT tokens, password hashing |
+| **Movie Service**        | 8002 | movies_db:5434        | Movie catalog, theaters, showtimes, seat management    |
+| **Booking Service**      | 8003 | bookings_db:5435      | Seat locking, booking creation, booking management     |
+| **Payment Service**      | 8004 | payments_db:5436      | Payment processing, refunds, idempotency               |
+| **Notification Service** | 8005 | notifications_db:5437 | Email notifications, async message consumption         |
 
 ---
 
@@ -159,43 +159,43 @@ The system showcases critical distributed systems concepts:
 
 ### Backend Services
 
-| Component | Technology | Version | Purpose |
-|:----------|:-----------|:--------|:--------|
-| Language | Python | 3.11+ | Service implementation |
-| Framework | FastAPI | 0.104+ | REST API framework |
-| ORM | SQLAlchemy | 2.0+ | Database abstraction |
-| Validation | Pydantic | 2.0+ | Data validation |
-| Auth | PyJWT | 2.8+ | JWT token handling |
-| HTTP Client | HTTPX | 0.25+ | Async HTTP requests |
+| Component   | Technology | Version | Purpose                |
+| :---------- | :--------- | :------ | :--------------------- |
+| Language    | Python     | 3.11+   | Service implementation |
+| Framework   | FastAPI    | 0.104+  | REST API framework     |
+| ORM         | SQLAlchemy | 2.0+    | Database abstraction   |
+| Validation  | Pydantic   | 2.0+    | Data validation        |
+| Auth        | PyJWT      | 2.8+    | JWT token handling     |
+| HTTP Client | HTTPX      | 0.25+   | Async HTTP requests    |
 
 ### Frontend
 
-| Component | Technology | Version | Purpose |
-|:----------|:-----------|:--------|:--------|
-| Framework | Laravel | 10.x | PHP web framework |
-| Language | PHP | 8.2+ | Server-side logic |
-| Template Engine | Blade | - | View rendering |
-| CSS Framework | Bootstrap | 5.x | UI components |
+| Component       | Technology | Version | Purpose           |
+| :-------------- | :--------- | :------ | :---------------- |
+| Framework       | Laravel    | 10.x    | PHP web framework |
+| Language        | PHP        | 8.2+    | Server-side logic |
+| Template Engine | Blade      | -       | View rendering    |
+| CSS Framework   | Bootstrap  | 5.x     | UI components     |
 
 ### Infrastructure
 
-| Component | Technology | Version | Purpose |
-|:----------|:-----------|:--------|:--------|
-| Database | PostgreSQL | 15-alpine | Persistent storage |
-| Cache | Redis | 7-alpine | Caching & distributed locks |
-| Message Queue | RabbitMQ | 3-management | Async messaging |
-| Gateway | NGINX | alpine | API routing & load balancing |
-| Containerization | Docker | 24+ | Service packaging |
-| Orchestration | Docker Compose | 2.x | Local development |
-| Orchestration | Kubernetes | 1.28+ | Production deployment |
+| Component        | Technology     | Version      | Purpose                      |
+| :--------------- | :------------- | :----------- | :--------------------------- |
+| Database         | PostgreSQL     | 15-alpine    | Persistent storage           |
+| Cache            | Redis          | 7-alpine     | Caching & distributed locks  |
+| Message Queue    | RabbitMQ       | 3-management | Async messaging              |
+| Gateway          | NGINX          | alpine       | API routing & load balancing |
+| Containerization | Docker         | 24+          | Service packaging            |
+| Orchestration    | Docker Compose | 2.x          | Local development            |
+| Orchestration    | Kubernetes     | 1.28+        | Production deployment        |
 
 ### Monitoring & Observability
 
-| Component | Technology | Purpose |
-|:----------|:-----------|:--------|
-| Metrics | Prometheus | Time-series metrics collection |
-| Visualization | Grafana | Dashboards and alerting |
-| Tracing | Correlation IDs | Distributed request tracing |
+| Component     | Technology      | Purpose                        |
+| :------------ | :-------------- | :----------------------------- |
+| Metrics       | Prometheus      | Time-series metrics collection |
+| Visualization | Grafana         | Dashboards and alerting        |
+| Tracing       | Correlation IDs | Distributed request tracing    |
 
 ---
 
@@ -203,27 +203,27 @@ The system showcases critical distributed systems concepts:
 
 ### Required Software
 
-| Software | Minimum Version | Download Link |
-|:---------|:----------------|:--------------|
-| Docker Desktop | 4.0+ | [docker.com/products/docker-desktop](https://docker.com/products/docker-desktop) |
-| Git | 2.30+ | [git-scm.com/downloads](https://git-scm.com/downloads) |
+| Software       | Minimum Version | Download Link                                                                    |
+| :------------- | :-------------- | :------------------------------------------------------------------------------- |
+| Docker Desktop | 4.0+            | [docker.com/products/docker-desktop](https://docker.com/products/docker-desktop) |
+| Git            | 2.30+           | [git-scm.com/downloads](https://git-scm.com/downloads)                           |
 
 ### System Requirements
 
-| Resource | Minimum | Recommended |
-|:---------|:--------|:------------|
-| RAM | 8 GB | 16 GB |
-| CPU | 4 cores | 8 cores |
-| Disk Space | 10 GB | 20 GB |
+| Resource   | Minimum | Recommended |
+| :--------- | :------ | :---------- |
+| RAM        | 8 GB    | 16 GB       |
+| CPU        | 4 cores | 8 cores     |
+| Disk Space | 10 GB   | 20 GB       |
 
 ### Optional (For Development)
 
-| Software | Purpose |
-|:---------|:--------|
-| Python 3.11+ | Running services locally |
-| Node.js 18+ | Frontend development |
-| kubectl | Kubernetes management |
-| Helm 3+ | Kubernetes package management |
+| Software     | Purpose                       |
+| :----------- | :---------------------------- |
+| Python 3.11+ | Running services locally      |
+| Node.js 18+  | Frontend development          |
+| kubectl      | Kubernetes management         |
+| Helm 3+      | Kubernetes package management |
 
 ---
 
@@ -249,6 +249,7 @@ cp .env.example .env
 ### Step 3: Build and Start Services
 
 **Windows (PowerShell):**
+
 ```powershell
 # Using helper script
 .\scripts\run_local.ps1 up
@@ -258,6 +259,7 @@ docker-compose up -d --build
 ```
 
 **Linux/macOS:**
+
 ```bash
 # Using helper script
 ./scripts/run_local.sh up
@@ -279,7 +281,11 @@ docker-compose ps
 
 ```bash
 # Seed sample movies and showtimes
-docker-compose exec movie-db psql -U postgres -d movies_db -f /docker-entrypoint-initdb.d/seed_movies.sql
+# Windows (PowerShell)
+Get-Content database/seed_movies.sql | docker-compose exec -T postgres-movie psql -U movie_user -d movies_db
+
+# Linux/macOS
+cat database/seed_movies.sql | docker-compose exec -T postgres-movie psql -U movie_user -d movies_db
 ```
 
 ---
@@ -288,35 +294,35 @@ docker-compose exec movie-db psql -U postgres -d movies_db -f /docker-entrypoint
 
 ### Service Ports
 
-| Service | Internal Port | External Port | URL |
-|:--------|:--------------|:--------------|:----|
-| API Gateway | 80 | 80 | http://localhost |
-| Frontend | 80 | 8080 | http://localhost:8080 |
-| Auth Service | 8000 | 8001 | http://localhost:8001 |
-| Movie Service | 8000 | 8002 | http://localhost:8002 |
-| Booking Service | 8000 | 8003 | http://localhost:8003 |
-| Payment Service | 8000 | 8004 | http://localhost:8004 |
-| Notification Service | 8000 | 8005 | http://localhost:8005 |
+| Service              | Internal Port | External Port | URL                   |
+| :------------------- | :------------ | :------------ | :-------------------- |
+| API Gateway          | 80            | 80            | http://localhost      |
+| Frontend             | 80            | 8080          | http://localhost:8080 |
+| Auth Service         | 8000          | 8001          | http://localhost:8001 |
+| Movie Service        | 8000          | 8002          | http://localhost:8002 |
+| Booking Service      | 8000          | 8003          | http://localhost:8003 |
+| Payment Service      | 8000          | 8004          | http://localhost:8004 |
+| Notification Service | 8000          | 8005          | http://localhost:8005 |
 
 ### Database Ports
 
-| Database | Port | Database Name |
-|:---------|:-----|:--------------|
-| Auth DB | 5433 | auth_db |
-| Movies DB | 5434 | movies_db |
-| Bookings DB | 5435 | bookings_db |
-| Payments DB | 5436 | payments_db |
+| Database         | Port | Database Name    |
+| :--------------- | :--- | :--------------- |
+| Auth DB          | 5433 | auth_db          |
+| Movies DB        | 5434 | movies_db        |
+| Bookings DB      | 5435 | bookings_db      |
+| Payments DB      | 5436 | payments_db      |
 | Notifications DB | 5437 | notifications_db |
 
 ### Infrastructure Ports
 
-| Service | Port | Credentials |
-|:--------|:-----|:------------|
-| Redis | 6379 | No auth (dev) |
-| RabbitMQ | 5672 | guest/guest |
-| RabbitMQ UI | 15672 | guest/guest |
-| Prometheus | 9090 | No auth |
-| Grafana | 3000 | admin/admin |
+| Service     | Port  | Credentials   |
+| :---------- | :---- | :------------ |
+| Redis       | 6379  | No auth (dev) |
+| RabbitMQ    | 5672  | guest/guest   |
+| RabbitMQ UI | 15672 | guest/guest   |
+| Prometheus  | 9090  | No auth       |
+| Grafana     | 3000  | admin/admin   |
 
 ---
 
@@ -334,13 +340,13 @@ docker-compose --profile monitoring up -d --build
 
 ### Access Points
 
-| Interface | URL | Description |
-|:----------|:----|:------------|
-| **Frontend** | http://localhost:8080 | User interface |
-| **API Gateway** | http://localhost | Unified API entry |
+| Interface        | URL                        | Description                     |
+| :--------------- | :------------------------- | :------------------------------ |
+| **Frontend**     | http://localhost:8080      | User interface                  |
+| **API Gateway**  | http://localhost           | Unified API entry               |
 | **Swagger Docs** | http://localhost:800X/docs | API documentation (per service) |
-| **RabbitMQ** | http://localhost:15672 | Message queue management |
-| **Grafana** | http://localhost:3000 | Monitoring dashboards |
+| **RabbitMQ**     | http://localhost:15672     | Message queue management        |
+| **Grafana**      | http://localhost:3000      | Monitoring dashboards           |
 
 ### Stop Services
 
@@ -360,56 +366,56 @@ docker-compose down -v
 
 Each service provides Swagger UI documentation:
 
-| Service | Swagger URL |
-|:--------|:------------|
-| Auth | http://localhost:8001/docs |
-| Movie | http://localhost:8002/docs |
-| Booking | http://localhost:8003/docs |
-| Payment | http://localhost:8004/docs |
+| Service      | Swagger URL                |
+| :----------- | :------------------------- |
+| Auth         | http://localhost:8001/docs |
+| Movie        | http://localhost:8002/docs |
+| Booking      | http://localhost:8003/docs |
+| Payment      | http://localhost:8004/docs |
 | Notification | http://localhost:8005/docs |
 
 ### API Endpoints Overview
 
 #### Authentication Service (`/api/auth`)
 
-| Method | Endpoint | Description | Auth Required |
-|:-------|:---------|:------------|:--------------|
-| `POST` | `/register` | Register new user | No |
-| `POST` | `/token` | Login and get JWT | No |
-| `GET` | `/verify` | Verify JWT token | Yes |
-| `GET` | `/users/me` | Get current user | Yes |
-| `GET` | `/health` | Health check | No |
+| Method | Endpoint    | Description       | Auth Required |
+| :----- | :---------- | :---------------- | :------------ |
+| `POST` | `/register` | Register new user | No            |
+| `POST` | `/token`    | Login and get JWT | No            |
+| `GET`  | `/verify`   | Verify JWT token  | Yes           |
+| `GET`  | `/users/me` | Get current user  | Yes           |
+| `GET`  | `/health`   | Health check      | No            |
 
 #### Movie Service (`/api/movies`)
 
-| Method | Endpoint | Description | Auth Required |
-|:-------|:---------|:------------|:--------------|
-| `GET` | `/movies` | List all movies | No |
-| `GET` | `/movies/{id}` | Get movie details | No |
-| `GET` | `/theaters` | List theaters | No |
-| `GET` | `/showtimes` | List showtimes | No |
-| `GET` | `/showtimes/{id}/seats` | Get seat availability | No |
-| `GET` | `/health` | Health check | No |
+| Method | Endpoint                | Description           | Auth Required |
+| :----- | :---------------------- | :-------------------- | :------------ |
+| `GET`  | `/movies`               | List all movies       | No            |
+| `GET`  | `/movies/{id}`          | Get movie details     | No            |
+| `GET`  | `/theaters`             | List theaters         | No            |
+| `GET`  | `/showtimes`            | List showtimes        | No            |
+| `GET`  | `/showtimes/{id}/seats` | Get seat availability | No            |
+| `GET`  | `/health`               | Health check          | No            |
 
 #### Booking Service (`/api/bookings`)
 
-| Method | Endpoint | Description | Auth Required |
-|:-------|:---------|:------------|:--------------|
-| `POST` | `/book` | Create booking | Yes |
-| `GET` | `/bookings` | List user bookings | Yes |
-| `GET` | `/bookings/{id}` | Get booking details | Yes |
-| `POST` | `/bookings/{id}/cancel` | Cancel booking | Yes |
-| `GET` | `/health` | Health check | No |
+| Method | Endpoint                | Description         | Auth Required |
+| :----- | :---------------------- | :------------------ | :------------ |
+| `POST` | `/book`                 | Create booking      | Yes           |
+| `GET`  | `/bookings`             | List user bookings  | Yes           |
+| `GET`  | `/bookings/{id}`        | Get booking details | Yes           |
+| `POST` | `/bookings/{id}/cancel` | Cancel booking      | Yes           |
+| `GET`  | `/health`               | Health check        | No            |
 
 #### Payment Service (`/api/payments`)
 
-| Method | Endpoint | Description | Auth Required |
-|:-------|:---------|:------------|:--------------|
-| `POST` | `/process` | Process payment | Yes |
-| `GET` | `/payments` | Payment history | Yes |
-| `GET` | `/payments/{id}` | Payment details | Yes |
-| `POST` | `/payments/{id}/refund` | Request refund | Yes |
-| `GET` | `/health` | Health check | No |
+| Method | Endpoint                | Description     | Auth Required |
+| :----- | :---------------------- | :-------------- | :------------ |
+| `POST` | `/process`              | Process payment | Yes           |
+| `GET`  | `/payments`             | Payment history | Yes           |
+| `GET`  | `/payments/{id}`        | Payment details | Yes           |
+| `POST` | `/payments/{id}/refund` | Request refund  | Yes           |
+| `GET`  | `/health`               | Health check    | No            |
 
 ### Quick Test Commands
 
@@ -444,11 +450,13 @@ curl -X POST http://localhost/api/bookings/book \
 ### Automated End-to-End Tests
 
 **Windows:**
+
 ```powershell
 .\scripts\e2e_test.ps1
 ```
 
 **Linux/macOS:**
+
 ```bash
 ./scripts/e2e_test.sh
 ```
@@ -489,6 +497,7 @@ locust -f load_test.py --host=http://localhost
 Access Grafana at http://localhost:3000 (admin/admin)
 
 **Available Dashboards:**
+
 - Service Health Overview
 - Request Rate & Latency
 - Database Connections
@@ -500,6 +509,7 @@ Access Grafana at http://localhost:3000 (admin/admin)
 Access Prometheus at http://localhost:9090
 
 **Key Metrics:**
+
 - `http_requests_total` - Total HTTP requests
 - `http_request_duration_seconds` - Request latency
 - `booking_created_total` - Bookings created
@@ -514,6 +524,7 @@ GET /health
 ```
 
 Response:
+
 ```json
 {
   "status": "healthy",
@@ -629,7 +640,7 @@ async def process_payment(booking_id: str, amount: float, idempotency_key: str):
     existing = await redis.get(cache_key)
     if existing:
         return json.loads(existing)  # Return cached result
-    
+
     result = await execute_payment(booking_id, amount)
     await redis.setex(cache_key, 86400, json.dumps(result))
     return result
@@ -708,15 +719,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Additional Documentation
 
-| Document | Description |
-|:---------|:------------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Detailed system architecture |
-| [DOCUMENTATION.md](DOCUMENTATION.md) | Technical documentation |
-| [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) | Design decisions and trade-offs |
-| [GLOSSARY.md](GLOSSARY.md) | Terms and definitions |
-| [docs/K8S_LOCAL_DEPLOYMENT.md](docs/K8S_LOCAL_DEPLOYMENT.md) | Kubernetes local setup |
-| [docs/LOAD_TESTING.md](docs/LOAD_TESTING.md) | Load testing guide |
-| [docs/RUNBOOK.md](docs/RUNBOOK.md) | Operations runbook |
+| Document                                                     | Description                     |
+| :----------------------------------------------------------- | :------------------------------ |
+| [ARCHITECTURE.md](ARCHITECTURE.md)                           | Detailed system architecture    |
+| [DOCUMENTATION.md](DOCUMENTATION.md)                         | Technical documentation         |
+| [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md)                         | Design decisions and trade-offs |
+| [GLOSSARY.md](GLOSSARY.md)                                   | Terms and definitions           |
+| [docs/K8S_LOCAL_DEPLOYMENT.md](docs/K8S_LOCAL_DEPLOYMENT.md) | Kubernetes local setup          |
+| [docs/LOAD_TESTING.md](docs/LOAD_TESTING.md)                 | Load testing guide              |
+| [docs/RUNBOOK.md](docs/RUNBOOK.md)                           | Operations runbook              |
 
 ---
 

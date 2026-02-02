@@ -11,7 +11,7 @@
 -- PHIM ĐANG CHIẾU (NOW SHOWING)
 -- =====================================================
 
-INSERT INTO movies (title, description, duration_minutes, genre, language, rating, release_date, poster_url, trailer_url, director, cast, is_active) VALUES
+INSERT INTO movies (title, description, duration_minutes, genre, language, rating, release_date, poster_url, trailer_url, director, "cast", is_active) VALUES
 (
     'Đào, Phở và Piano',
     'Bộ phim tái hiện cuộc sống của người dân Hà Nội trong những ngày cuối cùng trước khi tiếp quản thủ đô năm 1954. Câu chuyện xoay quanh một chiến sĩ tự vệ thành, một cô gái Hà Nội và những người dân bình thường trong bối cảnh chiến tranh.',
@@ -129,7 +129,7 @@ INSERT INTO movies (title, description, duration_minutes, genre, language, ratin
 -- PHIM SẮP CHIẾU (COMING SOON)
 -- =====================================================
 
-INSERT INTO movies (title, description, duration_minutes, genre, language, rating, release_date, poster_url, trailer_url, director, cast, is_active) VALUES
+INSERT INTO movies (title, description, duration_minutes, genre, language, rating, release_date, poster_url, trailer_url, director, "cast", is_active) VALUES
 (
     'Venom: The Last Dance',
     'Eddie Brock và Venom đang chạy trốn. Bị cả hai thế giới săn đuổi, họ buộc phải đưa ra quyết định tàn khốc sẽ hạ màn cho vở kịch cuối cùng của họ.',

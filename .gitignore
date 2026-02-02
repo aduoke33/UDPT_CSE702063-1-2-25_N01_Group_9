@@ -177,6 +177,8 @@ k8s/secrets/*.yml
 # -----------------------------------------------------------------------------
 # These are personal study/preparation files, not for submission
 PROJECT_EXPLAINER_VN.md
+DISTRIBUTED_SYSTEM_GUIDE.md
+docs/DISTRIBUTED_SYSTEM_GUIDE.md
 KNOWLEDGE_GUIDE.md
 DEPLOYMENT_GUIDE.md
 PRESENTATION_CHECKLIST.md
