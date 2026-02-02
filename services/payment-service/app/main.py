@@ -68,7 +68,9 @@ AUTH_SERVICE_URL = os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000")
 BOOKING_SERVICE_URL = os.getenv("BOOKING_SERVICE_URL", "http://booking-service:8000")
 REDIS_URL = os.getenv("REDIS_URL", "redis://:redis123@redis:6379/3")
 REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "10.0"))
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://localhost:3000").split(",")
+CORS_ORIGINS = os.getenv(
+    "CORS_ORIGINS", "http://localhost:8080,http://localhost:3000"
+).split(",")
 
 # Database Setup with connection pooling
 engine = create_async_engine(
@@ -280,7 +282,7 @@ async def startup_event():
         try:
             rabbitmq_connection = await aio_pika.connect_robust(RABBITMQ_URL)
             rabbitmq_channel = await rabbitmq_connection.channel()
-            
+
             # Declare queue with dead letter exchange for failed messages
             await rabbitmq_channel.declare_queue("notifications", durable=True)
             logger.info("Connected to RabbitMQ")

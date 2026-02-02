@@ -59,7 +59,9 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql+asyncpg://admin:admin123@postgres:5432/movie_booking"
 )
 REDIS_URL = os.getenv("REDIS_URL", "redis://:redis123@redis:6379/0")
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://localhost:3000").split(",")
+CORS_ORIGINS = os.getenv(
+    "CORS_ORIGINS", "http://localhost:8080,http://localhost:3000"
+).split(",")
 
 # =====================================================
 # DATABASE SETUP
@@ -430,9 +432,7 @@ async def update_profile(
 
     if update_data:
         update_data["updated_at"] = datetime.utcnow()
-        await db.execute(
-            update(User).where(User.id == user.id).values(**update_data)
-        )
+        await db.execute(update(User).where(User.id == user.id).values(**update_data))
         await db.commit()
         await db.refresh(user)
 

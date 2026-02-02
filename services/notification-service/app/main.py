@@ -61,7 +61,9 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL", "postgresql+asyncpg://admin:admin123@postgres:5432/movie_booking"
 )
 RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://admin:admin123@rabbitmq:5672/")
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://localhost:3000").split(",")
+CORS_ORIGINS = os.getenv(
+    "CORS_ORIGINS", "http://localhost:8080,http://localhost:3000"
+).split(",")
 
 # Database Setup
 engine = create_async_engine(
@@ -238,7 +240,7 @@ async def process_notification(message: aio_pika.IncomingMessage):
     async with message.process():
         queue_messages_received.inc()
         pending_notifications_gauge.inc()
-        
+
         try:
             notification_data = json.loads(message.body.decode())
             notification_type = notification_data.get("type", "email")
@@ -252,11 +254,15 @@ async def process_notification(message: aio_pika.IncomingMessage):
                     notification_counter.labels(type="sms", status="success").inc()
                 else:
                     logger.warning(f"Unknown notification type: {notification_type}")
-                    notification_counter.labels(type=notification_type, status="unknown").inc()
+                    notification_counter.labels(
+                        type=notification_type, status="unknown"
+                    ).inc()
 
             notification_processing_histogram.observe(time.time() - start_time)
-            notification_send_histogram.labels(type=notification_type).observe(time.time() - start_time)
-            
+            notification_send_histogram.labels(type=notification_type).observe(
+                time.time() - start_time
+            )
+
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in message: {e}")
             notification_counter.labels(type="unknown", status="error").inc()
@@ -289,7 +295,7 @@ async def startup_event():
         try:
             rabbitmq_connection = await aio_pika.connect_robust(RABBITMQ_URL)
             rabbitmq_channel = await rabbitmq_connection.channel()
-            
+
             # Set prefetch count for better load distribution
             await rabbitmq_channel.set_qos(prefetch_count=10)
 
