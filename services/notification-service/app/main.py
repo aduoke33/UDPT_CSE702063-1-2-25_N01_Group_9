@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 import uuid
 from contextvars import ContextVar
 from datetime import datetime
@@ -64,7 +65,11 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8080,http://localhost
 
 # Database Setup
 engine = create_async_engine(
-    DATABASE_URL, echo=True, pool_size=10, max_overflow=20, pool_pre_ping=True
+    DATABASE_URL,
+    echo=True,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
 )
 async_session_maker = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
@@ -228,9 +233,8 @@ async def send_sms_notification(notification_data: dict, db: AsyncSession):
 
 async def process_notification(message: aio_pika.IncomingMessage):
     """Process notification from RabbitMQ queue with proper acknowledgment"""
-    import time
     start_time = time.time()
-    
+
     async with message.process():
         queue_messages_received.inc()
         pending_notifications_gauge.inc()
@@ -297,9 +301,12 @@ async def startup_event():
         except Exception as e:
             logger.warning(f"RabbitMQ connection attempt {attempt + 1} failed: {e}")
             if attempt < max_retries - 1:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
             else:
-                logger.error(f"RabbitMQ connection failed after {max_retries} attempts", exc_info=True)
+                logger.error(
+                    f"RabbitMQ connection failed after {max_retries} attempts",
+                    exc_info=True,
+                )
 
 
 @app.on_event("shutdown")
